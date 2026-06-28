@@ -47,19 +47,16 @@ The preview builds a `.love` in the browser (JSZip) and boots it with
 `SharedArrayBuffer`, so the page must be **cross-origin isolated** — which means
 it must be served over http(s)/localhost (not `file://`).
 
-**The easy way (local):** one command, no dependencies —
-
-```sh
-python3 serve.py        # serves with isolation headers and opens engine.html
-```
-
-**Static hosts (e.g. GitHub Pages):** keep `coi-serviceworker.js` (included)
-next to `engine.html`. It's the [gzuidhof](https://github.com/gzuidhof/coi-serviceworker)
+**Hosted (e.g. GitHub Pages):** keep `coi-serviceworker.js` (included) next to
+`engine.html`. It's the [gzuidhof](https://github.com/gzuidhof/coi-serviceworker)
 service-worker trick — it injects the `COOP`/`COEP` headers so isolation just
-works. engine.html registers it automatically and reloads once to gain
-isolation. (Verified: when served with isolation, the page reports
-`crossOriginIsolated === true` and Run proceeds to build the `.love` and boot
-love.js.)
+works on a static host with no config. engine.html registers it automatically
+and reloads once to gain isolation. (Verified: when served with isolation, the
+page reports `crossOriginIsolated === true` and Run proceeds to build the
+`.love` and boot love.js.)
+
+**Local:** with `coi-serviceworker.js` alongside it, any localhost server works —
+e.g. `python3 -m http.server`, then open `http://localhost:8000/engine.html`.
 
 When isolation is missing, **Run** prints exactly what to do in the console.
 Everything else (editing, the doc model, Markdown, and **Export .love**) works

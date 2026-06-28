@@ -17,8 +17,8 @@
   The doc model (parse/serialize) and the love.js runtime are engine.html's own.
 -->
 
-<!-- marked.js for Markdown (graceful fallback to a built-in renderer if offline) -->
-<script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+<!-- marked.js for Markdown is loaded NON-blocking at boot (see loadMarked());
+     a built-in renderer is used until/if it arrives, so the UI never waits on a CDN. -->
 
 <!-- CodeMirror 6 — loaded on demand via dynamic import(); textarea fallback if offline -->
 <script type="importmap">
@@ -621,6 +621,22 @@ function renderMarkdownHTML(src){
   }
   return fallbackMarkdown(src);
 }
+// Load marked.js without blocking render; re-render md cells once it arrives.
+function loadMarked(){
+  if (window.marked) return;
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js';
+  s.async = true;
+  s.onload = () => refreshMarkdownCells();
+  s.onerror = () => {};
+  document.head.appendChild(s);
+}
+function refreshMarkdownCells(){
+  $$('.cell').forEach(el => {
+    const c = nb.doc.cells.find(x => x.id === +el.dataset.id);
+    if (c && c.type === 'md' && !el.classList.contains('md-edit')) renderMd(el, c);
+  });
+}
 
 /* ════════════════════════════════════════════════════════════════════════════
  * 3. STATE + PERSISTENCE
@@ -1010,9 +1026,9 @@ async function run(){
     logConsole('Live preview needs cross-origin isolation (SharedArrayBuffer).','err');
     if (location.protocol==='file:'){
       logConsole('You are on file:// — love.js can’t run here (no SharedArrayBuffer).','warn');
-      logConsole('Run it from the repo folder with the bundled one-command launcher:','dim');
-      logConsole('  python3 serve.py        (serves with isolation, opens the page)','dim');
-      logConsole('or any static host with coi-serviceworker.js alongside engine.html.','dim');
+      logConsole('Serve it from a localhost server (with coi-serviceworker.js alongside):','dim');
+      logConsole('  python3 -m http.server   →   http://localhost:8000/engine.html','dim');
+      logConsole('or host it (e.g. GitHub Pages); the bundled service worker isolates it.','dim');
     } else {
       logConsole('Add coi-serviceworker.js next to engine.html (it is in this repo), or','dim');
       logConsole('serve with COOP: same-origin + COEP: require-corp, then reload.','dim');
@@ -1128,6 +1144,7 @@ function boot(){
   renderHistory();
   setDirty(false);
   setRuntime('idle');
+  loadMarked();
   registerIsolationSW();
   if (!isolated() && location.protocol!=='file:'){ setRuntime('idle','Runtime: idle (isolating…)'); }
   // try to upgrade Lua editors to CodeMirror (no-op if offline)
