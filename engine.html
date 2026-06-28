@@ -64,16 +64,16 @@
   --type-lua-bg: #FBE6F1; --type-lua-fg: #8C1A55;
   --type-md-bg:  #FAEAE4; --type-md-fg:  #7C2D12;
 
-  /* LoveIDE brand: hot-pink "Love" + gunmetal "IDE" (IDE adapts on dark themes) */
-  --brand-love: #FF1E8C;
-  --brand-ide:  #2A3139;
+  /* LoveIDE brand — light/dark agnostic: hot-pink "Love" + slate "IDE".
+     Both read on light and dark backgrounds, so no per-theme override. */
+  --brand-love: #EC4899;
+  --brand-ide:  #708090;
 }
 [data-theme="ember"], [data-theme="dusk"], [data-theme="carbon"] {
   --fn-execute: #6ba3e8; --fn-execute-bg: rgba(107,163,232,.15); --fn-execute-border: rgba(107,163,232,.40);
   --fn-success: #4cae64; --fn-success-bg: rgba(76,174,100,.15);
   --fn-danger:  #f07178; --fn-danger-bg:  rgba(240,113,120,.15);
   --fn-working: #e0b341; --fn-working-bg: rgba(224,179,65,.16); --fn-working-border: rgba(224,179,65,.40);
-  --brand-love: #FF3D9C; --brand-ide: #9AA8B2;
 }
 [data-theme="linen"] {
   --bg-primary:#f7f5f1; --bg-secondary:#edeae4; --bg-tertiary:#e3dcd4; --bg-info:#ece3d8;
@@ -542,6 +542,20 @@ const I = {
 };
 function svg(name, cls) {
   return `<svg class="${cls||''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${I[name]||''}</svg>`;
+}
+// LoveIDE brand mark: a pink heart with "</>" knocked out (white) in the
+// lower-right quadrant. Single shape, scales down to favicon size.
+const BRAND_HEART = 'M12 21s-7-4.5-9.3-9C1 8.6 2.6 5 6 5c2 0 3.2 1.2 4 2.5C10.8 6.2 12 5 14 5c3.4 0 5 3.6 3.3 7-2.3 4.5-9.3 9-9.3 9z';
+const BRAND_BRACKETS = ['M14.7 12 L13.2 13.6 L14.7 15.2','M16 11.6 L14.4 15.6','M15.8 12 L17.3 13.6 L15.8 15.2'];
+function brandSVG(size, fill){
+  const br = BRAND_BRACKETS.map(d=>`<path d="${d}" fill="none" stroke="#fff" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>`).join('');
+  return `<svg viewBox="0 0 24 24" width="${size||24}" height="${size||24}"><path d="${BRAND_HEART}" fill="${fill||'var(--brand-love)'}"/>${br}</svg>`;
+}
+function setFavicon(){
+  const data = 'data:image/svg+xml,' + encodeURIComponent(brandSVG(32, '#EC4899'));
+  let link = document.querySelector("link[rel='icon']");
+  if (!link){ link = document.createElement('link'); link.rel='icon'; document.head.appendChild(link); }
+  link.type='image/svg+xml'; link.href=data;
 }
 function paintIcons(root=document) {
   root.querySelectorAll('[data-ico]').forEach(el => { el.innerHTML = svg(el.dataset.ico) + (el.childNodes.length && el.dataset.keep ? '' : ''); });
@@ -1567,7 +1581,8 @@ function registerIsolationSW(){
 
 function boot(){
   try { nb.opts = Object.assign(nb.opts, JSON.parse(lsGet(LS.opts,'{}'))); } catch(e){}
-  $('#logo-mark').innerHTML=svg('love');
+  $('#logo-mark').innerHTML=brandSVG(26);
+  setFavicon();
   $('#placeholder-icon').innerHTML=`<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${I.play}</svg>`;
   paintIcons();
   applyTheme();
