@@ -1009,10 +1009,10 @@ async function run(){
     showPlaceholder();
     logConsole('Live preview needs cross-origin isolation (SharedArrayBuffer).','err');
     if (location.protocol==='file:'){
-      logConsole('You are on file:// — service workers can’t run here.','warn');
-      logConsole('Serve the folder over http(s)/localhost (the bundled coi-serviceworker.js','dim');
-      logConsole('then grants isolation automatically). e.g.:','dim');
-      logConsole('  python3 -m http.server  →  open http://localhost:8000/engine.html','dim');
+      logConsole('You are on file:// — love.js can’t run here (no SharedArrayBuffer).','warn');
+      logConsole('Run it from the repo folder with the bundled one-command launcher:','dim');
+      logConsole('  python3 serve.py        (serves with isolation, opens the page)','dim');
+      logConsole('or any static host with coi-serviceworker.js alongside engine.html.','dim');
     } else {
       logConsole('Add coi-serviceworker.js next to engine.html (it is in this repo), or','dim');
       logConsole('serve with COOP: same-origin + COEP: require-corp, then reload.','dim');

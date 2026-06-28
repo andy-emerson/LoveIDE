@@ -47,19 +47,19 @@ The preview builds a `.love` in the browser (JSZip) and boots it with
 `SharedArrayBuffer`, so the page must be **cross-origin isolated** — which means
 it must be served over http(s)/localhost (not `file://`).
 
-**The easy way:** keep `coi-serviceworker.js` (included in this repo) next to
-`engine.html`. It's the [gzuidhof](https://github.com/gzuidhof/coi-serviceworker)
-service-worker trick: it injects the required `COOP`/`COEP` headers for you, so
-isolation just works on any static host — GitHub Pages, or locally:
+**The easy way (local):** one command, no dependencies —
 
 ```sh
-python3 -m http.server 8000      # then open http://localhost:8000/engine.html
+python3 serve.py        # serves with isolation headers and opens engine.html
 ```
 
-engine.html registers that service worker automatically when it's present and
-reloads once to gain isolation. **The manual way** (if you'd rather not ship the
-worker): serve `engine.html` with `Cross-Origin-Opener-Policy: same-origin` and
-`Cross-Origin-Embedder-Policy: require-corp`.
+**Static hosts (e.g. GitHub Pages):** keep `coi-serviceworker.js` (included)
+next to `engine.html`. It's the [gzuidhof](https://github.com/gzuidhof/coi-serviceworker)
+service-worker trick — it injects the `COOP`/`COEP` headers so isolation just
+works. engine.html registers it automatically and reloads once to gain
+isolation. (Verified: when served with isolation, the page reports
+`crossOriginIsolated === true` and Run proceeds to build the `.love` and boot
+love.js.)
 
 When isolation is missing, **Run** prints exactly what to do in the console.
 Everything else (editing, the doc model, Markdown, and **Export .love**) works
