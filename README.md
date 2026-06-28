@@ -22,39 +22,48 @@ over it. The file always stays a valid, runnable `.lua`.
 | Module       | Status |
 |--------------|--------|
 | doc model (`parse`/`serialize`, idempotent) | ✅ tested |
-| cell UI (add/delete/reorder, md⇄lua toggle, Lua editor) | ✅ |
-| built-in Markdown renderer | ✅ |
-| persistence (localStorage autosave + snapshot history) | ✅ |
+| cell UI — badge type-switch, inter-cell insert zones, hover actions, collapse, reorder | ✅ |
+| Lua editor — CodeMirror 6 (falls back to a plain editor offline) | ✅ |
+| Markdown — marked.js (falls back to a built-in renderer offline) + WYSIWYG cells | ✅ |
+| themes — warm / cool / mono × light / dark / auto (from the oracle) | ✅ |
+| persistence — localStorage autosave + snapshot history | ✅ |
 | asset manager (left activity bar) | ✅ basic |
 | export runnable `.love` | ✅ |
-| love.js preview (2dengine) | ✅ *requires isolation — see below* |
+| love.js preview (2dengine) | ⚠️ *requires cross-origin isolation — see below* |
 
-Click **✓ Tests** in the title bar to run the in-page round-trip / toggle
-self-tests. The doc model is also exposed on `window.engine` for the console.
+The design language and many component patterns (theme system, layout, cell
+cards, insert zones, CodeMirror/marked integration, Markdown WYSIWYG) are drawn
+from Neodide's `notebook.html` — the oracle — adapted from Python/SQL to Lua/LÖVE.
+CodeMirror, marked, and love.js load from CDNs on first use; everything else
+(including the doc model and export) works fully offline.
+
+Click **Tests** in the topbar to run the in-page round-trip / toggle self-tests.
+The doc model is also exposed on `window.engine` for the console.
 
 ## Running the live preview
 
 The preview builds a `.love` in the browser (JSZip) and boots it with
 [2dengine/love.js](https://github.com/2dengine/love.js). love.js needs
-`SharedArrayBuffer`, so the page must be served **cross-origin isolated** over
-http(s) — it will not work from `file://`. Serve with these response headers:
+`SharedArrayBuffer`, so the page must be **cross-origin isolated** — which means
+it must be served over http(s)/localhost (not `file://`).
 
-```
-Cross-Origin-Opener-Policy: same-origin
-Cross-Origin-Embedder-Policy: require-corp
-```
-
-For example:
+**The easy way:** keep `coi-serviceworker.js` (included in this repo) next to
+`engine.html`. It's the [gzuidhof](https://github.com/gzuidhof/coi-serviceworker)
+service-worker trick: it injects the required `COOP`/`COEP` headers for you, so
+isolation just works on any static host — GitHub Pages, or locally:
 
 ```sh
-npx http-server -p 8080 --cors \
-  -H "Cross-Origin-Opener-Policy: same-origin" \
-  -H "Cross-Origin-Embedder-Policy: require-corp"
+python3 -m http.server 8000      # then open http://localhost:8000/engine.html
 ```
 
-When isolation is missing, **Run** explains exactly what to do. Everything else
-(editing, the doc model, Markdown, and **Export .love**) works offline — and the
-exported `.love` runs in desktop LÖVE regardless.
+engine.html registers that service worker automatically when it's present and
+reloads once to gain isolation. **The manual way** (if you'd rather not ship the
+worker): serve `engine.html` with `Cross-Origin-Opener-Policy: same-origin` and
+`Cross-Origin-Embedder-Policy: require-corp`.
+
+When isolation is missing, **Run** prints exactly what to do in the console.
+Everything else (editing, the doc model, Markdown, and **Export .love**) works
+offline — and the exported `.love` runs in desktop LÖVE regardless.
 
 ## Keyboard
 
