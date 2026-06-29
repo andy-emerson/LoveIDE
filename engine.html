@@ -319,6 +319,35 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .api-row .ins { opacity: 0; color: var(--text-tertiary); display: flex; }
 .api-row:hover .ins { opacity: 1; }
 
+/* Variables panel (ported from the oracle's var-list) */
+.pane-note { font-size: 10px; color: var(--text-tertiary); font-style: italic; padding: 6px 12px; }
+.var-section { font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--text-tertiary); padding: 9px 12px 3px; display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; }
+.var-section .chev { transition: transform .15s; }
+.var-section.collapsed .chev { transform: rotate(-90deg); }
+.var-section .count { margin-left: auto; font-weight: 400; }
+.var-row { padding: 5px 12px; cursor: pointer; border-bottom: .5px solid var(--border-faint); }
+.var-row:hover { background: var(--bg-secondary); }
+.var-row-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.var-name { font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.var-type { font-size: 10px; font-family: var(--font-sans); padding: 1px 5px; border-radius: 3px; background: var(--bg-tertiary); color: var(--text-tertiary); flex-shrink: 0; white-space: nowrap; }
+.var-preview { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.3; }
+
+/* Tables panel grid (ported from the oracle's out-table) */
+.tbl-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px 4px; }
+.tbl-head .grow { flex: 1; font-size: 12px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tbl-head.clickable { cursor: pointer; }
+.tbl-head.clickable:hover .grow { color: var(--type-lua-fg); }
+.tbl-grid { overflow-x: auto; padding: 0 12px 10px; }
+.tbl-grid table { border-collapse: collapse; font-size: 11.5px; font-family: var(--font-mono); min-width: 100%; }
+.tbl-grid th { background: var(--bg-secondary); padding: 4px 8px; text-align: left; font-weight: 600; color: var(--text-secondary); border-bottom: .5px solid var(--border-medium); white-space: nowrap; position: sticky; top: 0; }
+.tbl-grid td { padding: 4px 8px; border-bottom: .5px solid var(--border-faint); color: var(--text-primary); white-space: nowrap; }
+.tbl-grid td.num, .tbl-grid th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl-grid tr:last-child td { border-bottom: none; }
+.kv { padding: 0 12px 10px; font-family: var(--font-mono); font-size: 11.5px; }
+.kv-line { display: flex; gap: 8px; padding: 2px 0; }
+.kv-line .k { color: var(--text-secondary); }
+.kv-line .v { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* assistant chat */
 .chat-msgs { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 12px; }
 .chat-msg { font-size: 12px; line-height: 1.5; padding: 7px 9px; border-radius: 8px; white-space: pre-wrap; word-break: break-word; max-width: 94%; }
@@ -425,6 +454,8 @@ input[type=file] { display: none; }
     <div id="left-activity-bar" class="activity-bar">
       <button class="activity-bar-btn active" data-tab="assets" title="Assets" data-ico="assets"></button>
       <button class="activity-bar-btn" data-tab="outline" title="Outline" data-ico="list"></button>
+      <button class="activity-bar-btn" data-tab="variables" title="Variables" data-ico="braces"></button>
+      <button class="activity-bar-btn" data-tab="tables" title="Tables" data-ico="table"></button>
       <button class="activity-bar-btn" data-tab="config" title="Config · conf.lua" data-ico="sliders"></button>
       <button class="activity-bar-btn" data-tab="libs" title="Libraries" data-ico="package"></button>
       <button class="activity-bar-btn" data-tab="api" title="LÖVE API" data-ico="book"></button>
@@ -442,6 +473,14 @@ input[type=file] { display: none; }
       <div class="pane-panel" id="panel-outline" data-tab="outline">
         <div class="pane-header">Outline</div>
         <div id="outline-list" style="flex:1;overflow-y:auto"></div>
+      </div>
+      <div class="pane-panel" id="panel-variables" data-tab="variables">
+        <div class="pane-header">Variables · main.lua</div>
+        <div id="var-list" style="flex:1;overflow-y:auto"></div>
+      </div>
+      <div class="pane-panel" id="panel-tables" data-tab="tables">
+        <div class="pane-header">Tables · main.lua</div>
+        <div id="table-list" style="flex:1;overflow-y:auto"></div>
       </div>
       <div class="pane-panel" id="panel-libs" data-tab="libs">
         <div class="pane-header">Lua libraries</div>
@@ -584,6 +623,8 @@ const I = {
   sliders:'<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
   'message-code':'<path d="M5 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8l-4 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M10 8.5 8.2 10.5 10 12.5"/><path d="M14 8.5 15.8 10.5 14 12.5"/>',
   display:'<rect x="2.5" y="4" width="19" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  braces:'<path d="M7 4a2 2 0 0 0-2 2v3a2 2 0 0 1-2 2 2 2 0 0 1 2 2v3a2 2 0 0 0 2 2M17 4a2 2 0 0 1 2 2v3a2 2 0 0 0 2 2 2 2 0 0 0-2 2v3a2 2 0 0 1-2 2"/>',
+  table:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
 };
 function svg(name, cls) {
   return `<svg class="${cls||''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${I[name]||''}</svg>`;
@@ -1087,7 +1128,11 @@ function updateCellTitle(cellEl, cell){
   renderOutlineSoon();
 }
 let _outlineTimer=null;
-function renderOutlineSoon(){ clearTimeout(_outlineTimer); _outlineTimer=setTimeout(renderOutline,250); }
+function renderOutlineSoon(){ clearTimeout(_outlineTimer); _outlineTimer=setTimeout(()=>{
+  renderOutline();
+  if ($('#panel-variables') && $('#panel-variables').classList.contains('active')) renderVariablesTab();
+  if ($('#panel-tables') && $('#panel-tables').classList.contains('active')) renderTablesTab();
+},350); }
 // Insert zones compute their index from DOM position (count .cell nodes before
 // them), so they stay correct after in-place drag reordering.
 function createInsertZone(){
@@ -1308,6 +1353,141 @@ function renderOutline(){
     ]);
     row.onclick=()=>{ const el=$(`.cell[data-id="${c.id}"]`); if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),750); } };
     wrap.appendChild(row);
+  });
+}
+
+/* ── Variables & Tables — static analysis of main.lua via luaparse ──
+ * Lazy-loads luaparse (like marked/CodeMirror); a heuristic regex scan is the
+ * offline fallback. Variables = symbol map (functions + globals); Tables = data
+ * tables, with arrays-of-records rendered as grids. Both jump to the cell. */
+const LUAPARSE_URL = 'https://cdn.jsdelivr.net/npm/luaparse@0.3.1/luaparse.js';
+let _luaparseP = null;
+function loadLuaparse(){
+  if (window.luaparse) return Promise.resolve(window.luaparse);
+  if (_luaparseP) return _luaparseP;
+  _luaparseP = new Promise(res => { const s=document.createElement('script'); s.src=LUAPARSE_URL; s.onload=()=>res(window.luaparse||null); s.onerror=()=>res(null); document.head.appendChild(s); });
+  return _luaparseP;
+}
+function lpMemberName(n){ if(!n) return '?'; if(n.type==='Identifier') return n.name; if(n.type==='MemberExpression') return lpMemberName(n.base)+(n.indexer||'.')+n.identifier.name; if(n.type==='IndexExpression') return lpMemberName(n.base)+'[…]'; return '?'; }
+function lpDisp(node, src){
+  if(!node) return '';
+  switch(node.type){
+    case 'StringLiteral': return node.raw!=null?node.raw:('"'+node.value+'"');
+    case 'NumericLiteral': return String(node.value);
+    case 'BooleanLiteral': return String(node.value);
+    case 'NilLiteral': return 'nil';
+    case 'Identifier': return node.name;
+    case 'UnaryExpression': return node.operator+lpDisp(node.argument,src);
+    case 'TableConstructorExpression': return '{ '+node.fields.length+' }';
+    case 'FunctionDeclaration': case 'FunctionExpression': return 'function('+(node.parameters||[]).map(p=>p.name||'...').join(', ')+')';
+    default: { const r=node.range; let s=r?src.slice(r[0],r[1]):node.type; s=s.replace(/\s+/g,' '); return s.length>40?s.slice(0,40)+'…':s; }
+  }
+}
+function lpValType(n){ if(!n) return 'nil'; const m={StringLiteral:'string',NumericLiteral:'number',BooleanLiteral:'boolean',NilLiteral:'nil',TableConstructorExpression:'table',FunctionDeclaration:'function',FunctionExpression:'function',Identifier:'ref',CallExpression:'call',StringCallExpression:'call',TableCallExpression:'call'}; return m[n.type]||'expr'; }
+function lpTableInfo(name, line, isLocal, tc, src){
+  const fields=tc.fields||[];
+  const allValues = fields.length>0 && fields.every(f=>f.type==='TableValue');
+  const recordy = allValues && fields.every(f=>f.value.type==='TableConstructorExpression' && f.value.fields.some(x=>x.type==='TableKeyString'));
+  if(recordy){
+    const cols=[]; fields.forEach(f=>f.value.fields.forEach(x=>{ if(x.type==='TableKeyString' && !cols.includes(x.key.name)) cols.push(x.key.name); }));
+    const rows=fields.map(f=>{ const rec={}; f.value.fields.forEach(x=>{ if(x.type==='TableKeyString') rec[x.key.name]=lpDisp(x.value,src); }); return cols.map(c=>c in rec?rec[c]:''); });
+    return {name,line,local:isLocal,kind:'records',columns:cols,rows,count:rows.length};
+  }
+  const keyed = fields.length>0 && fields.some(f=>f.type==='TableKeyString'||f.type==='TableKey');
+  if(keyed){ const entries=fields.map(f=>{ if(f.type==='TableKeyString') return {k:f.key.name, v:lpDisp(f.value,src)}; if(f.type==='TableKey') return {k:'['+lpDisp(f.key,src)+']', v:lpDisp(f.value,src)}; return {k:'·', v:lpDisp(f.value,src)}; }); return {name,line,local:isLocal,kind:'map',entries,count:entries.length}; }
+  return {name,line,local:isLocal,kind:'array',items:fields.map(f=>lpDisp(f.value,src)),count:fields.length};
+}
+function analyzeLua(src, luaparse){
+  const out={functions:[],globals:[],tables:[],error:null};
+  let ast; try { ast=luaparse.parse(src,{locations:true,ranges:true,comments:false,luaVersion:'5.3'}); } catch(e){ out.error=e.message||String(e); return out; }
+  const line=n=>n.loc?n.loc.start.line:0;
+  for(const n of ast.body){
+    if(n.type==='FunctionDeclaration'){
+      out.functions.push({name:lpMemberName(n.identifier), line:line(n), local:!!n.isLocal, sig:'('+(n.parameters||[]).map(p=>p.name||'...').join(', ')+')'});
+    } else if(n.type==='LocalStatement' || n.type==='AssignmentStatement'){
+      const isLocal=n.type==='LocalStatement';
+      n.variables.forEach((v,i)=>{
+        const init=n.init&&n.init[i]; const nm=lpMemberName(v);
+        if(init && (init.type==='FunctionDeclaration'||init.type==='FunctionExpression')) out.functions.push({name:nm, line:line(n), local:isLocal, sig:'('+(init.parameters||[]).map(p=>p.name||'...').join(', ')+')'});
+        else if(init && init.type==='TableConstructorExpression') out.tables.push(lpTableInfo(nm, line(n), isLocal, init, src));
+        else out.globals.push({name:nm, line:line(n), local:isLocal, type:lpValType(init), preview:lpDisp(init,src)});
+      });
+    }
+  }
+  return out;
+}
+// Offline fallback: line-by-line heuristic (top-level only, no record grids).
+function heuristicAnalyze(src){
+  const out={functions:[],globals:[],tables:[],error:null}; let m;
+  src.split('\n').forEach((ln,i)=>{
+    if(m=/^\s*(local\s+)?function\s+([\w.:]+)\s*\(([^)]*)\)/.exec(ln)) out.functions.push({name:m[2],line:i+1,local:!!m[1],sig:'('+m[3]+')'});
+    else if(m=/^\s*([\w.]+)\s*=\s*function\s*\(([^)]*)\)/.exec(ln)) out.functions.push({name:m[1],line:i+1,local:false,sig:'('+m[2]+')'});
+    else if(m=/^\s*(local\s+)?([\w.]+)\s*=\s*\{/.exec(ln)) out.tables.push({name:m[2],line:i+1,local:!!m[1],kind:'map',entries:[],count:0});
+    else if(m=/^\s*(local\s+)?([\w.]+)\s*=\s*(\S.*)$/.exec(ln)){ const v=m[3].trim(); out.globals.push({name:m[2],line:i+1,local:!!m[1],type:/^["']/.test(v)?'string':/^-?[.\d]/.test(v)?'number':/^(true|false)\b/.test(v)?'boolean':'expr',preview:v.slice(0,40)}); }
+  });
+  return out;
+}
+// Map a serialized-main.lua line number to the cell it falls in.
+function cellLineMap(){
+  let out=''; const spans=[];
+  for(const c of nb.doc.cells){ out+=c.before||''; const s=out.length; out+=cellBody(c); spans.push({id:c.id,s,e:out.length}); }
+  const lineAt=off=>{ let n=1; for(let i=0;i<off && i<out.length;i++) if(out[i]==='\n') n++; return n; };
+  return spans.map(x=>({id:x.id, startLine:lineAt(x.s), endLine:lineAt(x.e)}));
+}
+function jumpToLine(line, map){
+  map=map||cellLineMap();
+  const m=map.find(s=>line>=s.startLine && line<=s.endLine) || map[0]; if(!m) return;
+  const el=$(`.cell[data-id="${m.id}"]`); if(!el) return;
+  el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),750);
+}
+async function analyzeCurrent(){ const lp=await loadLuaparse(); const src=serialize(nb.doc); return { res: lp?analyzeLua(src,lp):heuristicAnalyze(src), lp:!!lp }; }
+
+function appendVarSection(wrap, title, items, map){
+  if(!items.length) return;
+  const head=elem('div',{class:'var-section'},[ elem('span',{class:'chev',html:svg('chevron')}), elem('span',{text:title}), elem('span',{class:'count',text:String(items.length)}) ]);
+  const body=elem('div');
+  items.forEach(it=>{
+    const row=elem('div',{class:'var-row',title:it.name},[
+      elem('div',{class:'var-row-top'},[ elem('span',{class:'var-name',text:it.name}), elem('span',{class:'var-type',text:it.type}) ]),
+      it.preview?elem('div',{class:'var-preview',text:it.preview}):null,
+    ]);
+    row.onclick=()=>jumpToLine(it.line, map);
+    body.appendChild(row);
+  });
+  head.onclick=()=>{ head.classList.toggle('collapsed'); body.style.display=head.classList.contains('collapsed')?'none':''; };
+  wrap.appendChild(head); wrap.appendChild(body);
+}
+async function renderVariablesTab(){
+  const wrap=$('#var-list'); if(!wrap) return;
+  const { res, lp } = await analyzeCurrent(); const map=cellLineMap();
+  wrap.innerHTML='';
+  if(!lp) wrap.appendChild(elem('div',{class:'pane-note',text:'Approximate — Lua parser offline.'}));
+  if(res.error){ wrap.appendChild(elem('div',{class:'pane-empty',text:'Parse error: '+res.error})); return; }
+  appendVarSection(wrap,'Functions', res.functions.map(f=>({name:f.name+f.sig, type:f.local?'local':'global', preview:'', line:f.line})), map);
+  appendVarSection(wrap,'Globals', res.globals.map(g=>({name:g.name, type:g.type, preview:g.preview, line:g.line})), map);
+  if(!res.functions.length && !res.globals.length) wrap.appendChild(elem('div',{class:'pane-empty',text:'No top-level symbols in main.lua'}));
+}
+function recordsGrid(t){
+  const wrap=elem('div',{class:'tbl-grid'}); const table=document.createElement('table');
+  const thead=document.createElement('thead'), htr=document.createElement('tr');
+  t.columns.forEach(c=>{ const th=document.createElement('th'); th.textContent=c; htr.appendChild(th); }); thead.appendChild(htr); table.appendChild(thead);
+  const tb=document.createElement('tbody');
+  t.rows.forEach(r=>{ const tr=document.createElement('tr'); r.forEach(v=>{ const td=document.createElement('td'); if(/^-?[\d.]/.test(v)) td.className='num'; td.textContent=v; tr.appendChild(td); }); tb.appendChild(tr); });
+  table.appendChild(tb); wrap.appendChild(table); return wrap;
+}
+async function renderTablesTab(){
+  const wrap=$('#table-list'); if(!wrap) return;
+  const { res, lp } = await analyzeCurrent(); const map=cellLineMap();
+  wrap.innerHTML='';
+  if(!lp){ wrap.appendChild(elem('div',{class:'pane-empty',text:'Table grids need the Lua parser (currently offline). Names only:'})); res.tables.forEach(t=>{ const h=elem('div',{class:'tbl-head clickable'},[elem('span',{class:'grow mono',text:t.name})]); h.onclick=()=>jumpToLine(t.line,map); wrap.appendChild(h); }); return; }
+  if(res.error){ wrap.appendChild(elem('div',{class:'pane-empty',text:'Parse error: '+res.error})); return; }
+  if(!res.tables.length){ wrap.appendChild(elem('div',{class:'pane-empty',text:'No top-level tables in main.lua'})); return; }
+  res.tables.forEach(t=>{
+    const head=elem('div',{class:'tbl-head clickable',title:'Jump to definition'},[ elem('span',{class:'grow mono',text:t.name}), elem('span',{class:'var-type',text:t.kind+' · '+t.count}) ]);
+    head.onclick=()=>jumpToLine(t.line, map); wrap.appendChild(head);
+    if(t.kind==='records') wrap.appendChild(recordsGrid(t));
+    else if(t.kind==='map'){ const kv=elem('div',{class:'kv'}); t.entries.forEach(e=>kv.appendChild(elem('div',{class:'kv-line'},[elem('span',{class:'k',text:e.k+' ='}),elem('span',{class:'v',text:e.v})]))); wrap.appendChild(kv); }
+    else { wrap.appendChild(elem('div',{class:'kv'},[ elem('div',{class:'kv-line'},[elem('span',{class:'v',text:'{ '+t.items.join(', ')+' }'})]) ])); }
   });
 }
 
@@ -1722,6 +1902,8 @@ function wireActivityBars(){
         if (PANES.left.isCollapsed()) PANES.left.expand();
         lsSet('engine.html:leftTab',tab);
         if (tab==='settings') renderStorage();
+        if (tab==='variables') renderVariablesTab();
+        if (tab==='tables') renderTablesTab();
       }
     };
   });
@@ -1735,7 +1917,7 @@ function wireActivityBars(){
 function restorePanes(){
   const lt=lsGet('engine.html:leftTab', undefined);
   if (lt===''){ PANES.left.collapse(); $$('#left-activity-bar .activity-bar-btn').forEach(b=>b.classList.remove('active')); }
-  else if (lt){ switchTab(lt); }
+  else if (lt){ switchTab(lt); if(lt==='variables') renderVariablesTab(); if(lt==='tables') renderTablesTab(); if(lt==='settings') renderStorage(); }
   const ro=lsGet('engine.html:rightOpen','1');
   if (ro===''){ PANES.right.collapse(); $$('#right-activity-bar .activity-bar-btn').forEach(b=>b.classList.remove('active')); }
 }
