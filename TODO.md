@@ -107,12 +107,40 @@ The chat is otherwise **blind** — no real Sight, no Hands.
   `.love` to surface live values / a Lua REPL in the Console (the runtime
   counterpart to the static Variables/Tables).
 - **Hot-reload on edit** — debounced auto-Run after edits.
-- **Vendor icons** — optionally drop the handful of SVGs we use locally instead of
-  CDN-anything (we already hand-roll inline SVG; no Tabler webfont dependency).
 - **love.js boot** — confirm end-to-end across browsers when served
   cross-origin-isolated; the runtime can't be exercised in the dev sandbox (CDN
   egress blocked there).
 - **Export polish** — fused web build option; asset drag-and-drop into the .love.
+
+### Adapted from the oracle's backlog (unaudited — pending review)
+- **Automated integration tests** — a Playwright suite driving the real
+  `index.html` end-to-end through the headline flows (load, edit, toggle, Run,
+  Export). Dev-side only; the shipped app stays single-file. Directly targets the
+  claims currently parked at *browser-only* (love.js boot, CDN library loads,
+  WebLLM) — the path to verifying them above "stated." Headless doc-model
+  self-tests already exist (§9); this is the missing end-to-end layer.
+- **Demo / tutorial collection** — a few example LÖVE projects (bouncing ball,
+  tiny platformer) shipped with the app to show capabilities and common patterns.
+  Pairs with the agent's Tutor mode, where each step is a real cell on the canvas.
+- **History autosave redesign** — keyed-slot model by trigger type: a time-based
+  save overwrites the previous time-based save for the current project; manual
+  saves always accumulate. Add a `trigger` field to the history schema with
+  upsert logic.
+- **Performance pass (large notebooks)** — `upgradeAllEditors()` upgrades *every*
+  cell to CodeMirror; lazy-upgrade / destroy off-screen editors so large
+  notebooks stay responsive. Measure first, then target real bottlenecks.
+- **SRI hashes on CDN deps** — add `integrity="sha384-…"` + `crossorigin` to the
+  pinned CDN tags (CodeMirror, marked, JSZip, luaparse, web-llm, love.js). Do
+  last, once the dependency set is final — hashes are version-pinned, so doing it
+  early means regenerating on every dep bump.
+- **Code cleanup sweep** — recurring scan for dead code, legacy handlers, and
+  stale comments; run periodically.
+- **Import an existing project** — open an existing `main.lua` or `.love` into the
+  notebook (the inbound counterpart to Export). LoveIDE-shaped analog of the
+  oracle's multi-format import.
+- **Keyboard shortcuts** — none are defined yet (deliberately removed; only the
+  CM6 editor keymap and chat Enter-to-send remain). Add the full set in one pass
+  near v1.0 once the feature set is known, rather than piecemeal.
 
 ## From the founding design doc — still open
 - True in-place love.js hot-restart vs full Module recreate (currently fresh

@@ -36,7 +36,7 @@
     9 Markdown output   10 Toast
   <script> JS, numbered 0–10:
     0 Icons   1 Doc model   2 Markdown   3 State + persistence   4 Theme
-    5 CodeMirror   6 Cell DOM   6b Activity-bar panels   7 Runtime
+    5 CodeMirror   6 Cell DOM   6b Activity-bar panels   6c Agent (WebLLM)   7 Runtime
     8 Export   9 Self-tests   10 Wiring + boot
   (Each section is marked by a ════ banner; this list is its table of contents.)
 -->
@@ -624,35 +624,49 @@ input[type=file] { display: none; }
 /* ════════════════════════════════════════════════════════════════════════════
  * 0. ICONS (inline SVG — no CDN dependency, unlike the oracle's icon webfont)
  * ════════════════════════════════════════════════════════════════════════════ */
+// Vendored from Tabler Icons (https://tabler.io/icons, MIT) @ v3.31.0, outline set,
+// inline so there's still no CDN/webfont dependency. svg() supplies the shared
+// wrapper (24x24, stroke=currentColor, fill=none). Key names differ from Tabler's
+// where noted (e.g. save=device-floppy, md=markdown, terminal=terminal-2).
 const I = {
-  play:'<polygon points="6 4 20 12 6 20 6 4"/>', stop:'<rect x="5" y="5" width="14" height="14" rx="2"/>',
-  file:'<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/>',
-  folder:'<path d="M5 4h4l3 3h7a1 1 0 0 1 1 1v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>',
-  save:'<path d="M6 4h11l3 3v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M14 4v5H8V4"/><rect x="8" y="13" width="8" height="6"/>',
-  download:'<path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/><path d="M7 11l5 5 5-5"/><path d="M12 4v12"/>',
-  check:'<path d="M5 12l5 5L20 7"/>', collapse:'<path d="M8 8l4-4 4 4"/><path d="M16 16l-4 4-4-4"/>',
-  plus:'<path d="M12 5v14M5 12h14"/>', trash:'<path d="M5 7h14M10 11v6M14 11v6M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13M9 7V4h6v3"/>',
-  up:'<path d="M12 19V5M6 11l6-6 6 6"/>', down:'<path d="M12 5v14M6 13l6 6 6-6"/>',
-  code:'<path d="M8 9l-3 3 3 3M16 9l3 3-3 3M13 6l-2 12"/>', md:'<path d="M4 7v10M4 7l4 5 4-5M16 7v10M16 17l3-3M16 17l-3-3"/>',
-  chevron:'<path d="M9 6l6 6-6 6"/>', assets:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="9" cy="9" r="1.5"/>',
-  history:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4M12 8v4l3 2"/>', settings:'<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.3 1a7 7 0 0 0-1.7-1l-.4-2.5h-4l-.4 2.5a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.6a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.6c.06-.3.1-.6.1-1z"/>',
-  terminal:'<path d="M5 7l5 5-5 5M13 17h6"/>', sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/>',
-  moon:'<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/>', auto:'<circle cx="12" cy="12" r="9"/><path d="M12 3v18" fill="currentColor" stroke="none" opacity="0.35"/>',
-  dot:'<circle cx="12" cy="12" r="5"/>', love:'<path d="M12 21s-7-4.5-9.3-9C1 8.6 2.6 5 6 5c2 0 3.2 1.2 4 2.5C10.8 6.2 12 5 14 5c3.4 0 5 3.6 3.3 7-2.3 4.5-9.3 9-9.3 9z"/>',
-  list:'<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
-  package:'<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/>',
-  book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
-  spark:'<path d="M12 3l1.7 4.5L18 9l-4.3 1.5L12 15l-1.7-4.5L6 9l4.3-1.5L12 3z"/><path d="M18.5 14l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z"/>',
-  search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>',
-  insert:'<path d="M12 5v14M5 12h14"/>', send:'<path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>',
-  sliders:'<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
-  'message-code':'<path d="M5 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8l-4 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M10 8.5 8.2 10.5 10 12.5"/><path d="M14 8.5 15.8 10.5 14 12.5"/>',
-  display:'<rect x="2.5" y="4" width="19" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
-  braces:'<path d="M7 4a2 2 0 0 0-2 2v3a2 2 0 0 1-2 2 2 2 0 0 1 2 2v3a2 2 0 0 0 2 2M17 4a2 2 0 0 1 2 2v3a2 2 0 0 0 2 2 2 2 0 0 0-2 2v3a2 2 0 0 1-2 2"/>',
-  table:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
+  'play':'<path d="M7 4v16l13 -8z" />',  // tabler player-play
+  'stop':'<path d="M5 5m0 2a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2z" />',  // tabler player-stop
+  'file':'<path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" />',  // tabler file
+  'folder':'<path d="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2" />',  // tabler folder
+  'save':'<path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" /><path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M14 4l0 4l-6 0l0 -4" />',  // tabler device-floppy
+  'download':'<path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /><path d="M7 11l5 5l5 -5" /><path d="M12 4l0 12" />',  // tabler download
+  'check':'<path d="M5 12l5 5l10 -10" />',  // tabler check
+  'collapse':'<path d="M12 3v6l3 -3m-6 0l3 3" /><path d="M12 21v-6l3 3m-6 0l3 -3" /><path d="M4 12l1 0" /><path d="M9 12l1 0" /><path d="M14 12l1 0" /><path d="M19 12l1 0" />',  // tabler fold
+  'plus':'<path d="M12 5l0 14" /><path d="M5 12l14 0" />',  // tabler plus
+  'trash':'<path d="M4 7l16 0" /><path d="M10 11l0 6" /><path d="M14 11l0 6" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />',  // tabler trash
+  'up':'<path d="M12 5l0 14" /><path d="M18 11l-6 -6" /><path d="M6 11l6 -6" />',  // tabler arrow-up
+  'down':'<path d="M12 5l0 14" /><path d="M18 13l-6 6" /><path d="M6 13l6 6" />',  // tabler arrow-down
+  'code':'<path d="M7 8l-4 4l4 4" /><path d="M17 8l4 4l-4 4" /><path d="M14 4l-4 16" />',  // tabler code
+  'md':'<path d="M3 5m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" /><path d="M7 15v-6l2 2l2 -2v6" /><path d="M14 13l2 2l2 -2m-2 2v-6" />',  // tabler markdown
+  'chevron':'<path d="M9 6l6 6l-6 6" />',  // tabler chevron-right
+  'assets':'<path d="M15 8h.01" /><path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12z" /><path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5" /><path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3" />',  // tabler photo
+  'history':'<path d="M12 8l0 4l2 2" /><path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" />',  // tabler history
+  'settings':'<path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z" /><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />',  // tabler settings
+  'terminal':'<path d="M8 9l3 3l-3 3" /><path d="M13 15l3 0" /><path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />',  // tabler terminal-2
+  'sun':'<path d="M12 12m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" /><path d="M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7" />',  // tabler sun
+  'moon':'<path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />',  // tabler moon
+  'auto':'<path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M12 17a5 5 0 0 0 0 -10v10" />',  // tabler contrast
+  'dot':'<path d="M12 12m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" />',  // tabler point
+  'list':'<path d="M9 6l11 0" /><path d="M9 12l11 0" /><path d="M9 18l11 0" /><path d="M5 6l0 .01" /><path d="M5 12l0 .01" /><path d="M5 18l0 .01" />',  // tabler list
+  'package':'<path d="M12 3l8 4.5l0 9l-8 4.5l-8 -4.5l0 -9l8 -4.5" /><path d="M12 12l8 -4.5" /><path d="M12 12l0 9" /><path d="M12 12l-8 -4.5" /><path d="M16 5.25l-8 4.5" />',  // tabler package
+  'book':'<path d="M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0" /><path d="M3 6a9 9 0 0 1 9 0a9 9 0 0 1 9 0" /><path d="M3 6l0 13" /><path d="M12 6l0 13" /><path d="M21 6l0 13" />',  // tabler book
+  'spark':'<path d="M16 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2zm0 -12a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2zm-7 12a6 6 0 0 1 6 -6a6 6 0 0 1 -6 -6a6 6 0 0 1 -6 6a6 6 0 0 1 6 6z" />',  // tabler sparkles
+  'search':'<path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" />',  // tabler search
+  'insert':'<path d="M12 5l0 14" /><path d="M5 12l14 0" />',  // tabler plus
+  'send':'<path d="M10 14l11 -11" /><path d="M21 3l-6.5 18a.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a.55 .55 0 0 1 0 -1l18 -6.5" />',  // tabler send
+  'sliders':'<path d="M4 10a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M6 4v4" /><path d="M6 12v8" /><path d="M10 16a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M12 4v10" /><path d="M12 18v2" /><path d="M16 7a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M18 4v1" /><path d="M18 9v11" />',  // tabler adjustments
+  'message-code':'<path d="M8 9h8" /><path d="M8 13h6" /><path d="M11.012 19.193l-3.012 1.807v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v6" /><path d="M20 21l2 -2l-2 -2" /><path d="M17 17l-2 2l2 2" />',  // tabler message-code
+  'display':'<path d="M3 5a1 1 0 0 1 1 -1h16a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-16a1 1 0 0 1 -1 -1v-10z" /><path d="M7 20h10" /><path d="M9 16v4" /><path d="M15 16v4" />',  // tabler device-desktop
+  'braces':'<path d="M7 4a2 2 0 0 0 -2 2v3a2 3 0 0 1 -2 3a2 3 0 0 1 2 3v3a2 2 0 0 0 2 2" /><path d="M17 4a2 2 0 0 1 2 2v3a2 3 0 0 0 2 3a2 3 0 0 0 -2 3v3a2 2 0 0 1 -2 2" />',  // tabler braces
+  'table':'<path d="M3 5a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-14z" /><path d="M3 10h18" /><path d="M10 3v18" />',  // tabler table
 };
 function svg(name, cls) {
-  return `<svg class="${cls||''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${I[name]||''}</svg>`;
+  return `<svg class="${cls||''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${I[name]||''}</svg>`;
 }
 function paintIcons(root=document) {
   root.querySelectorAll('[data-ico]').forEach(el => { el.innerHTML = svg(el.dataset.ico) + (el.childNodes.length && el.dataset.keep ? '' : ''); });
@@ -967,7 +981,9 @@ const CONF_DEFAULTS = { title:'Untitled', identity:'loveide-game', version:'11.5
 function readConf(){ try { return Object.assign({}, CONF_DEFAULTS, JSON.parse(lsGet('loveide:conf','{}'))); } catch(e){ return Object.assign({}, CONF_DEFAULTS); } }
 function writeConf(c){ lsSet('loveide:conf', JSON.stringify(c)); }
 function luaStr(s){ return '"' + String(s).replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/\n/g,'\\n') + '"'; }
-function generateConfLua(){
+// `devHooks` appends preview-only instrumentation (see ERRHAND_HOOK). The export
+// path passes false so the shipped conf.lua is clean main.lua + conf only.
+function generateConfLua(devHooks){
   const c=readConf();
   return `-- Generated by LoveIDE — edit in Settings → Game
 function love.conf(t)
@@ -980,8 +996,24 @@ function love.conf(t)
   t.window.vsync = ${c.vsync?1:0}
   t.window.fullscreen = ${c.fullscreen?'true':'false'}
 end
-`;
+${devHooks ? ERRHAND_HOOK : ''}`;
 }
+// Override (not wrap love.run): chain LÖVE's own error screen, but first write the
+// message to stderr so love.js maps it to console.error → the iframe→parent bridge
+// → the IDE Console. Set in conf.lua because the default love.errorhandler already
+// exists by then, and conf is a separate file so main.lua line numbers are unshifted.
+const ERRHAND_HOOK = `
+-- LoveIDE preview only: surface Lua runtime errors to the IDE Console, then fall
+-- through to LÖVE's default error screen.
+do
+  local _orig = love.errorhandler or love.errhand
+  function love.errorhandler(msg)
+    pcall(function() io.stderr:write("[lua error] "..tostring(msg).."\\n") end)
+    if _orig then return _orig(msg) end
+  end
+  love.errhand = love.errorhandler
+end
+`;
 function renderConf(){
   const c=readConf();
   const set=(id,v)=>{ const el=$('#'+id); if(el){ if(el.type==='checkbox') el.checked=!!v; else el.value=v; } };
@@ -1177,7 +1209,6 @@ function createCellEl(cell){
     ta.addEventListener('input',()=>{ cell.code=ta.value; autosize(ta); setDirty(true); saveSoon(); updateCellTitle(cellEl,cell); });
     ta.addEventListener('focus',()=>{ cellEl.classList.add('focused'); nb.editor.lastFocus=cell.id; });
     ta.addEventListener('blur',()=>cellEl.classList.remove('focused'));
-    ta.addEventListener('keydown',e=>editorKeys(e,ta,cell));
     body.appendChild(ta); setTimeout(()=>autosize(ta),0);
     setTimeout(()=>upgradeEditor(cellEl,cell),0);
   } else {
@@ -1185,7 +1216,6 @@ function createCellEl(cell){
     ta.addEventListener('focus',()=>{ nb.editor.lastFocus=cell.id; });
     ta.addEventListener('input',()=>{ cell.code=ta.value; autosize(ta); setDirty(true); saveSoon(); });
     ta.addEventListener('blur',()=>{ cell.code=ta.value; renderMd(cellEl,cell); setDirty(true); saveSoon(); updateCellTitle(cellEl,cell); });
-    ta.addEventListener('keydown',e=>editorKeys(e,ta,cell));
     body.appendChild(ta);
     out.addEventListener('click',()=>{ if(cellEl.classList.contains('collapsed'))return; cellEl.classList.remove('md-view'); cellEl.classList.add('md-edit'); autosize(ta); ta.focus(); });
     renderMd(cellEl,cell);
@@ -1196,10 +1226,6 @@ function createCellEl(cell){
 }
 function mkAction(ico,title,fn,cls){ const b=elem('button',{class:'ca-btn'+(cls?' '+cls:''),title,html:svg(ico)}); b.onclick=fn; return b; }
 function autosize(ta){ ta.style.height='auto'; ta.style.height=(ta.scrollHeight+2)+'px'; }
-function editorKeys(e,ta,cell){
-  if (e.key==='Tab'){ e.preventDefault(); const s=ta.selectionStart,en=ta.selectionEnd; ta.value=ta.value.slice(0,s)+'  '+ta.value.slice(en); ta.selectionStart=ta.selectionEnd=s+2; cell.code=ta.value; autosize(ta); setDirty(true); saveSoon(); }
-  if (e.key==='Enter' && (e.metaKey||e.ctrlKey)){ e.preventDefault(); run(); }
-}
 
 function openTypePicker(badge, cell){
   document.querySelectorAll('.type-picker').forEach(p=>p.remove());
@@ -1614,8 +1640,10 @@ function insertSnippet(text){
   toast('Copied (focus a Lua cell to insert)'); return false;
 }
 
-/* ── AI agent — in-browser WebLLM, ported from the oracle ──────────────────────
- * Models: exactly the oracle's three Qwen2.5-Coder sizes (q4f16_1). One shared
+/* ════════════════════════════════════════════════════════════════════════════
+ * 6c. AGENT (WebLLM) — in-browser model manager + streaming chat, ported from the oracle.
+ * ════════════════════════════════════════════════════════════════════════════ */
+/* Models: exactly the oracle's three Qwen2.5-Coder sizes (q4f16_1). One shared
  * MLCEngine holds one model at a time. Setup (GPU + install/activate/remove) lives
  * in Settings → Agent; the Agent tab is the chat. WebGPU + CDN required. */
 const WEBLLM_CDN = 'https://esm.run/@mlc-ai/web-llm';
@@ -1661,7 +1689,7 @@ async function agentRemove(id){
 async function agentActivate(id){
   if(agent.busyId) return; const m=AGENT_MODELS.find(x=>x.id===id); if(!m) return;
   agent.busyId=id; agent.op='activate'; agent.error=''; agent.progress=''; renderAgentLocal(); syncAgentPill();
-  try { const eng=await agentEnsureEngine(); eng.setInitProgressCallback(agentOnProgress); await eng.reload(id); agent.activeId=id; agent.installed.add(id); }
+  try { const eng=await agentEnsureEngine(); eng.setInitProgressCallback(agentOnProgress); await eng.reload(id, { context_window_size: AGENT_CTX_WINDOW }); agent.activeId=id; agent.installed.add(id); }
   catch(e){ agent.error=agentErr(e); console.error('[WebLLM] activate failed',e); }
   agent.busyId=null; agent.op=''; agent.progress=''; renderAgentLocal(); renderAgentTab(); syncAgentPill();
 }
@@ -1745,15 +1773,67 @@ function renderAgentMessages(){
   });
   box.scrollTop=box.scrollHeight;
 }
-const AGENT_SYSTEM = "You are a concise expert assistant for LÖVE (Love2D) game development in Lua. The user's whole game is the main.lua shown below. Prefer short, correct answers; when giving code use ```lua fenced blocks and write idiomatic LÖVE.";
+const AGENT_SYSTEM = "You are a concise expert assistant for LÖVE (Love2D) game development in Lua. Below is the project's current state — the full main.lua (the entire program; or a structural digest if it is too large), its conf, and recent Console output (love.js print/errors). Treat it as the single source of truth, freshly given each turn. Prefer short, correct answers; when giving code use ```lua fenced blocks and write idiomatic LÖVE.";
+
+// Sight budget. The window must comfortably fit a whole typical main.lua + conf +
+// recent console + a few turns + the reply. AGENT_CTX_WINDOW is requested at reload
+// (raise/lower per VRAM); the browser can't read free VRAM, so this is a manual dial.
+const AGENT_CTX_WINDOW   = 8192;  // context_window_size requested when a model loads
+const AGENT_SIGHT_BUDGET = 5200;  // token budget for the Sight brief (leaves room for history + reply)
+const AGENT_HISTORY_MAX  = 6;     // last N chat messages kept (full source is re-sent each turn)
+
+function estTokens(s){ return Math.ceil((s||'').length/4); }  // rough chars/4 heuristic
+
+// Compact conf.lua summary for Sight.
+function confSummary(){
+  const c=readConf();
+  return `title=${JSON.stringify(c.title||'Untitled')} identity=${c.identity||'loveide-game'} love=${c.version||'11.5'} window=${parseInt(c.width)||800}x${parseInt(c.height)||600}${c.resizable?' resizable':''}${c.fullscreen?' fullscreen':''} vsync=${c.vsync?1:0}`;
+}
+// Recent love.js Console output (print + errors) — the witness channel. Read from
+// the Console DOM so it reflects exactly what the human sees.
+function recentConsole(maxLines){
+  maxLines=maxLines||14;
+  return $$('#console > div').slice(-maxLines)
+    .map(d=>{ const t=(d.textContent||'').trim(); return t?((d.classList.contains('err')?'ERROR ':d.classList.contains('warn')?'WARN ':'')+t):''; })
+    .filter(Boolean).join('\n');
+}
+// Structural digest, used ONLY when the full source overflows the budget. Uses the
+// offline heuristic so it's synchronous and never waits on the luaparse CDN.
+function luaDigest(src){
+  const a=heuristicAnalyze(src), L=[];
+  if(a.functions.length) L.push('functions: '+a.functions.map(f=>(f.local?'local ':'')+f.name+f.sig+'@'+f.line).join(', '));
+  if(a.tables.length)    L.push('tables: '   +a.tables.map(t=>(t.local?'local ':'')+t.name+'@'+t.line).join(', '));
+  if(a.globals.length)   L.push('vars: '     +a.globals.map(g=>(g.local?'local ':'')+g.name+':'+g.type+'@'+g.line).join(', '));
+  return L.join('\n')||'(no top-level declarations found)';
+}
+// The curated brief sent as the system message each turn: full current main.lua +
+// conf + recent Console, rebuilt fresh. Digest fallback only if the source is too
+// big for the budget. Returns the brief text appended after AGENT_SYSTEM.
+function buildContext(budgetTokens){
+  budgetTokens = budgetTokens || AGENT_SIGHT_BUDGET;
+  const src=serialize(nb.doc), conf=confSummary(), con=recentConsole();
+  const srcBudget = budgetTokens - estTokens(conf) - estTokens(con) - 120;
+  const parts=[];
+  if (estTokens(src) <= srcBudget)
+    parts.push('Full main.lua — the entire program and single source of truth:\n```lua\n'+src+'\n```');
+  else
+    parts.push('main.lua is large (~'+estTokens(src)+' tokens, over budget); structural digest only — ask for a specific cell/region if you need the source:\n'+luaDigest(src));
+  parts.push('conf.lua: '+conf);
+  if (con) parts.push('Recent Console (love.js print / errors):\n'+con);
+  return parts.join('\n\n');
+}
+// Keep only the last N history messages; the full current source is re-sent each
+// turn, so older turns (often re-quoting now-stale code) add little.
+function boundedHistory(msgs){ return msgs.length<=AGENT_HISTORY_MAX ? msgs : msgs.slice(-AGENT_HISTORY_MAX); }
+
 async function agentSend(text){
   text=(text||'').trim();
   if(!text || agent.generating || !agent.activeId || !agent.engine) return;
   agent.messages.push({role:'user',content:text}); agent.messages.push({role:'assistant',content:''});
   agent.generating=true; renderAgentMessages(); syncAgentPill();
   try {
-    const ctx="Current main.lua:\n```lua\n"+serialize(nb.doc).slice(0,6000)+"\n```";
-    const convo=[{role:'system',content:AGENT_SYSTEM+"\n\n"+ctx}, ...agent.messages.slice(0,-1)];
+    const ctx=buildContext();
+    const convo=[{role:'system',content:AGENT_SYSTEM+"\n\n"+ctx}, ...boundedHistory(agent.messages.slice(0,-1))];
     const chunks=await agent.engine.chat.completions.create({ messages:convo, stream:true });
     let acc='';
     for await (const chunk of chunks){ acc += (chunk&&chunk.choices&&chunk.choices[0]&&chunk.choices[0].delta&&chunk.choices[0].delta.content)||''; agent.messages[agent.messages.length-1].content=acc; renderAgentMessages(); }
@@ -1801,12 +1881,12 @@ function loadJSZip(){
   _jszip=new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=RT.JSZIP; s.onload=()=>res(window.JSZip); s.onerror=()=>rej(new Error('Could not load JSZip (offline / blocked CDN).')); document.head.appendChild(s); });
   return _jszip;
 }
-async function buildLoveBlob(){
+async function buildLoveBlob(devHooks){
   syncFromEditors();
   const JSZip=await loadJSZip();
   const zip=new JSZip();
   zip.file('main.lua', serialize(nb.doc));
-  zip.file('conf.lua', generateConfLua());
+  zip.file('conf.lua', generateConfLua(devHooks));
   for (const a of await idbAllAssets()) zip.file(a.name, a.blob);
   for (const l of readLibs()) zip.file(l.path, l.code);
   return zip.generateAsync({ type:'blob', compression:'DEFLATE' });
@@ -1876,7 +1956,7 @@ async function run(){
     return;
   }
   setRuntime('loading','Engine: building .love');
-  let blob; try { blob=await buildLoveBlob(); } catch(e){ setRuntime('error'); logConsole(String(e.message||e),'err'); return; }
+  let blob; try { blob=await buildLoveBlob(true); } catch(e){ setRuntime('error'); logConsole(String(e.message||e),'err'); return; }
   setRuntime('loading','Engine: booting love.js');
   logConsole('Built .love ('+fmtBytes(blob.size)+'). Booting love.js '+RT.VERSION+'… (first run downloads the WASM)','dim');
   hookLoveMessages();
@@ -2025,10 +2105,6 @@ function wire(){
   $$('#seg-tone button').forEach(b=>b.onclick=()=>{ const t=getTheme(); t.tone=b.dataset.tone; setTheme(t); });
   const ln=$('#opt-linenums'); ln.checked=nb.opts.lineNumbers; ln.onchange=()=>{ nb.opts.lineNumbers=ln.checked; lsSet(LS.opts,JSON.stringify(nb.opts)); renderNotebook(); };
   setupPane('left'); setupPane('right'); wireActivityBars();
-  document.addEventListener('keydown',e=>{
-    if ((e.metaKey||e.ctrlKey)&&e.key==='Enter'){ e.preventDefault(); run(); }
-    if ((e.metaKey||e.ctrlKey)&&(e.key==='s'||e.key==='S')){ e.preventDefault(); saveDoc(true); downloadText(serialize(nb.doc),'main.lua'); toast('Saved main.lua'); }
-  });
   window.addEventListener('beforeunload',()=>{ try{ syncFromEditors(); saveDoc(false); }catch(e){} });
 }
 

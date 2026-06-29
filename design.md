@@ -80,9 +80,10 @@ Mirrors the numbered banner sections in `index.html` (JS sections 0–10).
 | 5 | CodeMirror | Lua editor on demand; textarea fallback | `loadCM` |
 | 6 | Cell DOM | Render/edit/reorder cells; markdown WYSIWYG | cell render + drag-to-reorder |
 | 6b | Activity panels | Outline, Lua libs, LÖVE API ref | panel renderers |
+| 6c | Agent (WebLLM) | In-browser model manager + streaming chat; Sight v0 | `detectWebGPU`, `initAgent`, agent manager + chat |
 | 7 | Runtime | Build `.love`, boot via 2dengine/love.js | `RT`, `playerHTML`, `run`, `buildLoveBlob` |
 | 8 | Export | `.love` download | `exportLove` |
-| 9 | Self-tests | Doc-model invariants run at boot | `runSelfTests` |
+| 9 | Self-tests | Doc-model invariants run on demand (Tests button) | `runSelfTests` |
 | 10 | Wiring + boot | Tabs, panes, event wiring, startup | `switchTab`, `setupPane`, `restorePanes` |
 
 ### The runtime, specifically
@@ -168,8 +169,9 @@ Coarse, per-subsystem. Status is the highest claim rung currently justified.
 | Console | **S → planned** | Currently a strip under the canvas; promote to a real RHS tab (TODO Step 1) — it's also the agent's Sight/witness channel. |
 | Export `.love` | **D** | JSZip build incl. main.lua + conf + assets + libs. Download path browser-only. |
 | conf.lua | **B** | `generateConfLua`, defaults, Game-settings panel. |
-| Agent — local | **browser-only** | WebLLM manager (Qwen2.5-Coder 1.5B/3B/7B), install/activate, VRAM gate, streaming chat. Untestable in sandbox (no GPU). Chat is otherwise **blind** — Sight v0 sends raw `main.lua` only. |
-| Agent — Sight/Hands/Modes/Backends | **S** | Designed in `TODO.md` (Steps 1–10); not built. |
+| Agent — local | **browser-only** | WebLLM manager (Qwen2.5-Coder 1.5B/3B/7B), install/activate, VRAM gate, streaming chat. Untestable in sandbox (no GPU). |
+| Agent — Sight | **T** (branching) / **browser-only** (e2e) | `buildContext()`: full current `main.lua` + conf + recent Console each turn, bounded history, luaDigest fallback when over budget; `context_window_size` raised to 8192 at load. Full-vs-digest branching tested headless; window override is dependency-reasoned, not run. |
+| Agent — Hands/Modes/Backends | **S** | Designed in `TODO.md`; not built. |
 | Hosting | **B** | GitHub Pages from `main`; `coi-serviceworker.js` grants isolation; the app is served directly as `index.html` (root). |
 
 When a row's rung changes or a new divergence is decided, update it here in the

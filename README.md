@@ -64,11 +64,6 @@ When isolation is missing, **Run** prints exactly what to do in the console.
 Everything else (editing, the doc model, Markdown, and **Export .love**) works
 offline — and the exported `.love` runs in desktop LÖVE regardless.
 
-## Keyboard
-
-- `Ctrl/Cmd + Enter` — Run preview
-- `Ctrl/Cmd + S` — download `main.lua`
-
 ---
 
 Spun out of Neodide; clean-room, separate product. See the founding design doc
