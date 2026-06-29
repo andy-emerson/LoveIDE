@@ -364,6 +364,9 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 /* ════════════════════════════════════════════════════════════════════════════
  * 8. PREVIEW (right pane)
  * ════════════════════════════════════════════════════════════════════════════ */
+.rh-title { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-secondary); }
+.right-panel { display: none; flex: 1 1 auto; min-height: 0; flex-direction: column; }
+.right-panel.active { display: flex; }
 #stage { flex: 1; min-height: 0; display: grid; place-items: center; position: relative; overflow: hidden; background: #0c0c0c; }
 #stage iframe { border: 0; width: 100%; height: 100%; background: #000; }
 #stage .placeholder { color: var(--text-tertiary); text-align: center; padding: 24px; max-width: 380px; line-height: 1.6; font-size: 13px; }
@@ -454,8 +457,6 @@ input[type=file] { display: none; }
     <div id="left-activity-bar" class="activity-bar">
       <button class="activity-bar-btn active" data-tab="assets" title="Assets" data-ico="assets"></button>
       <button class="activity-bar-btn" data-tab="outline" title="Outline" data-ico="list"></button>
-      <button class="activity-bar-btn" data-tab="variables" title="Variables" data-ico="braces"></button>
-      <button class="activity-bar-btn" data-tab="tables" title="Tables" data-ico="table"></button>
       <button class="activity-bar-btn" data-tab="config" title="Config · conf.lua" data-ico="sliders"></button>
       <button class="activity-bar-btn" data-tab="libs" title="Libraries" data-ico="package"></button>
       <button class="activity-bar-btn" data-tab="api" title="LÖVE API" data-ico="book"></button>
@@ -473,14 +474,6 @@ input[type=file] { display: none; }
       <div class="pane-panel" id="panel-outline" data-tab="outline">
         <div class="pane-header">Outline</div>
         <div id="outline-list" style="flex:1;overflow-y:auto"></div>
-      </div>
-      <div class="pane-panel" id="panel-variables" data-tab="variables">
-        <div class="pane-header">Variables · main.lua</div>
-        <div id="var-list" style="flex:1;overflow-y:auto"></div>
-      </div>
-      <div class="pane-panel" id="panel-tables" data-tab="tables">
-        <div class="pane-header">Tables · main.lua</div>
-        <div id="table-list" style="flex:1;overflow-y:auto"></div>
       </div>
       <div class="pane-panel" id="panel-libs" data-tab="libs">
         <div class="pane-header">Lua libraries</div>
@@ -558,35 +551,41 @@ input[type=file] { display: none; }
 
     <!-- right pane: preview -->
     <div id="right-pane">
-      <div class="pane-header">Preview · love.js
-        <span style="display:flex;gap:6px">
-          <span class="mini" id="toggle-console" title="Toggle console" data-ico="terminal"></span>
-        </span>
+      <div class="pane-header"><span class="rh-title" id="right-pane-header">Preview · love.js</span>
+        <span class="mini" id="toggle-console" title="Toggle console" data-ico="terminal"></span>
       </div>
-      <div id="stage">
-        <div class="placeholder" id="placeholder">
-          <div class="big" id="placeholder-icon"></div>
-          Press <b>Run</b> to build a <code>.love</code> in your browser and boot it with love.js.
-          <br><br><span style="font-size:12px">The exported <code>.love</code> also runs in desktop LÖVE.</span>
+      <div class="right-panel active" id="rpanel-preview" data-right-tab="preview">
+        <div id="stage">
+          <div class="placeholder" id="placeholder">
+            <div class="big" id="placeholder-icon"></div>
+            Press <b>Run</b> to build a <code>.love</code> in your browser and boot it with love.js.
+            <br><br><span style="font-size:12px">The exported <code>.love</code> also runs in desktop LÖVE.</span>
+          </div>
         </div>
+        <div id="console" class="hidden"></div>
       </div>
-      <div id="console" class="hidden"></div>
+      <div class="right-panel" id="rpanel-variables" data-right-tab="variables">
+        <div id="var-list" style="flex:1;overflow-y:auto"></div>
+      </div>
+      <div class="right-panel" id="rpanel-tables" data-right-tab="tables">
+        <div id="table-list" style="flex:1;overflow-y:auto"></div>
+      </div>
     </div>
 
     <!-- right activity bar -->
     <div id="right-activity-bar" class="activity-bar">
-      <button class="activity-bar-btn active" title="Preview" data-ico="display"></button>
+      <button class="activity-bar-btn active" data-right-tab="preview" title="Preview" data-ico="display"></button>
+      <button class="activity-bar-btn" data-right-tab="variables" title="Variables" data-ico="braces"></button>
+      <button class="activity-bar-btn" data-right-tab="tables" title="Tables" data-ico="table"></button>
     </div>
   </div>
 
   <!-- ───────────────────────── Status bar ───────────────────────── -->
   <div class="status-bar">
+    <span class="status-spacer"></span>
     <span class="status-item" id="st-runtime" data-ico="dot" title="love.js preview engine">Engine: idle</span>
     <span class="status-item status-link" id="st-agent" data-ico="dot" title="AI assistant">Agent: idle</span>
     <span class="status-item" id="st-save">Saved</span>
-    <span class="status-spacer"></span>
-    <span class="status-item" id="st-cells">0 cells</span>
-    <span class="status-item status-link" id="st-theme">theme</span>
   </div>
 </div>
 
@@ -1130,8 +1129,10 @@ function updateCellTitle(cellEl, cell){
 let _outlineTimer=null;
 function renderOutlineSoon(){ clearTimeout(_outlineTimer); _outlineTimer=setTimeout(()=>{
   renderOutline();
-  if ($('#panel-variables') && $('#panel-variables').classList.contains('active')) renderVariablesTab();
-  if ($('#panel-tables') && $('#panel-tables').classList.contains('active')) renderTablesTab();
+  if (PANES.right && !PANES.right.isCollapsed()){
+    if ($('#rpanel-variables') && $('#rpanel-variables').classList.contains('active')) renderVariablesTab();
+    if ($('#rpanel-tables') && $('#rpanel-tables').classList.contains('active')) renderTablesTab();
+  }
 },350); }
 // Insert zones compute their index from DOM position (count .cell nodes before
 // them), so they stay correct after in-place drag reordering.
@@ -1218,7 +1219,6 @@ function renderNotebook(){
     scroll.appendChild(createCellEl(cell));
     scroll.appendChild(createInsertZone());
   });
-  $('#st-cells').textContent = nb.doc.cells.length+' cell'+(nb.doc.cells.length===1?'':'s');
   renderOutline();
   saveSoon();
 }
@@ -1902,24 +1902,40 @@ function wireActivityBars(){
         if (PANES.left.isCollapsed()) PANES.left.expand();
         lsSet('engine.html:leftTab',tab);
         if (tab==='settings') renderStorage();
-        if (tab==='variables') renderVariablesTab();
-        if (tab==='tables') renderTablesTab();
       }
     };
   });
   $$('#right-activity-bar .activity-bar-btn').forEach(btn=>{
     btn.onclick=()=>{
-      if (PANES.right.isCollapsed()){ PANES.right.expand(); btn.classList.add('active'); lsSet('engine.html:rightOpen','1'); }
-      else { PANES.right.collapse(); btn.classList.remove('active'); lsSet('engine.html:rightOpen',''); }
+      const tab=btn.dataset.rightTab;
+      if (!PANES.right.isCollapsed() && btn.classList.contains('active')){
+        PANES.right.collapse();
+        $$('#right-activity-bar .activity-bar-btn').forEach(b=>b.classList.remove('active'));
+        lsSet('engine.html:rightTab','');
+      } else {
+        switchRightTab(tab);
+        if (PANES.right.isCollapsed()) PANES.right.expand();
+        lsSet('engine.html:rightTab',tab);
+      }
     };
   });
+}
+const RIGHT_TITLES = { preview:'Preview · love.js', variables:'Variables · main.lua', tables:'Tables · main.lua' };
+function switchRightTab(name){
+  $$('#right-activity-bar .activity-bar-btn').forEach(b=>b.classList.toggle('active', b.dataset.rightTab===name));
+  $$('#right-pane .right-panel').forEach(p=>p.classList.toggle('active', p.dataset.rightTab===name));
+  const h=$('#right-pane-header'); if(h) h.textContent = RIGHT_TITLES[name]||name;
+  const tc=$('#toggle-console'); if(tc) tc.style.display = name==='preview' ? '' : 'none';
+  if (name==='variables') renderVariablesTab();
+  if (name==='tables') renderTablesTab();
 }
 function restorePanes(){
   const lt=lsGet('engine.html:leftTab', undefined);
   if (lt===''){ PANES.left.collapse(); $$('#left-activity-bar .activity-bar-btn').forEach(b=>b.classList.remove('active')); }
-  else if (lt){ switchTab(lt); if(lt==='variables') renderVariablesTab(); if(lt==='tables') renderTablesTab(); if(lt==='settings') renderStorage(); }
-  const ro=lsGet('engine.html:rightOpen','1');
-  if (ro===''){ PANES.right.collapse(); $$('#right-activity-bar .activity-bar-btn').forEach(b=>b.classList.remove('active')); }
+  else if (lt){ switchTab(lt); if(lt==='settings') renderStorage(); }
+  const rt=lsGet('engine.html:rightTab','preview');
+  if (rt===''){ PANES.right.collapse(); $$('#right-activity-bar .activity-bar-btn').forEach(b=>b.classList.remove('active')); }
+  else { switchRightTab(rt); }
 }
 function wire(){
   $('#btn-run').onclick=run;
@@ -1937,7 +1953,6 @@ function wire(){
   $('#snap-clear').onclick=()=>{ if(confirm('Clear all snapshots?')){ lsSet(LS.hist,'[]'); renderHistory(); renderStorage(); toast('Snapshots cleared'); } };
   $('#api-search').oninput=e=>renderApi(e.target.value);
   $('#toggle-console').onclick=()=>showConsole();
-  $('#st-theme').onclick=()=>openTab('settings');
   $('#st-agent').onclick=()=>openTab('assistant');
   $$('#seg-mode button').forEach(b=>b.onclick=()=>{ const t=getTheme(); t.mode=b.dataset.mode; setTheme(t); });
   $$('#seg-tone button').forEach(b=>b.onclick=()=>{ const t=getTheme(); t.tone=b.dataset.tone; setTheme(t); });
