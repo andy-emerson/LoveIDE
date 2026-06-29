@@ -1,0 +1,176 @@
+# LoveIDE — design
+
+The reference document for how `engine.html` is built and why. Architecture
+first, then the process we follow, then a per-subsystem status/divergence ledger.
+For the live roadmap see `TODO.md`; for the working agreement see `CLAUDE.md`.
+
+---
+
+## 1. What LoveIDE is
+
+A **single-file, in-browser notebook IDE for authoring LÖVE (Love2D) games**.
+Open `engine.html`, write Lua in cells, hit Run, and a real LÖVE game boots in an
+iframe — no install, no toolchain. Export produces a standard `.love` that
+desktop LÖVE runs unchanged.
+
+The defining decision: **`main.lua` is the single source of truth.** The notebook
+is a *pure projection* over that one Lua file. Cells are a view; the bytes are the
+program. This is enforced by a round-trip invariant:
+
+```
+serialize(parse(src)) === src      // byte-for-byte, always
+```
+
+Everything else — the analysis panels, the agent's view of the project, the
+export — reads from that same serialized source. There is no second copy of the
+program's state to keep in sync.
+
+---
+
+## 2. Architecture map
+
+```mermaid
+flowchart TD
+    subgraph SOT["main.lua — single source of truth"]
+        SRC["Lua source bytes"]
+    end
+
+    SRC -->|parse| DOC["Doc model<br/>cells: lua / md"]
+    DOC -->|serialize| SRC
+
+    DOC --> CELLS["Cell UI<br/>CodeMirror · markdown · reorder"]
+    DOC --> ANALYZE["Static analysis<br/>luaparse → symbols / tables"]
+    DOC --> AGENT["Agent<br/>Sight = serialized doc + analysis + Console"]
+
+    CELLS --> PANES["Panes & activity bars<br/>LHS setup · RHS work"]
+    ANALYZE --> PANES
+    AGENT --> PANES
+
+    DOC --> BUILD["Build .love (JSZip)<br/>+ conf.lua + assets + libs"]
+    CONF["conf.lua model"] --> BUILD
+    IDB[("IndexedDB<br/>binary assets")] --> BUILD
+    BUILD --> RUNTIME["Runtime<br/>fresh iframe + love.js"]
+    RUNTIME -->|postMessage| CONSOLE["Console<br/>print / errors / boot signal"]
+    CONSOLE --> AGENT
+
+    LS[("localStorage<br/>doc · history · conf · theme · opts")] --> DOC
+    DOC --> LS
+
+    BUILD --> EXPORT["Export .love download"]
+```
+
+Read it as: **one source feeds many read-only projections**, and only two things
+write back to the source — the cell editors and the agent's Hands (when enabled).
+Persistence is split by data shape: structured state in `localStorage`, binary
+assets in IndexedDB.
+
+---
+
+## 3. Subsystems
+
+Mirrors the numbered banner sections in `engine.html` (JS sections 0–10).
+
+| # | Subsystem | Role | Key surface |
+|---|-----------|------|-------------|
+| 0 | Icons | Inline SVG, no icon webfont (the oracle uses one) | `I.*` |
+| 1 | Doc model | `main.lua` ↔ cells; the round-trip invariant | `parse`, `serialize`, `normalizeGlue`, `cellBody` |
+| 2 | Markdown | marked.js when present, compact built-in fallback | `renderMarkdownHTML` |
+| 3 | State + persistence | localStorage + IndexedDB assets + history snapshots | `LS`, `idb*`, `readConf/writeConf`, history |
+| 4 | Theme | 6 themes via CSS variables; brand pink/steel | `getTheme`, `applyTheme` |
+| 5 | CodeMirror | Lua editor on demand; textarea fallback | `loadCM` |
+| 6 | Cell DOM | Render/edit/reorder cells; markdown WYSIWYG | cell render + drag-to-reorder |
+| 6b | Activity panels | Outline, Lua libs, LÖVE API ref | panel renderers |
+| 7 | Runtime | Build `.love`, boot via 2dengine/love.js | `RT`, `playerHTML`, `run`, `buildLoveBlob` |
+| 8 | Export | `.love` download | `exportLove` |
+| 9 | Self-tests | Doc-model invariants run at boot | `runSelfTests` |
+| 10 | Wiring + boot | Tabs, panes, event wiring, startup | `switchTab`, `setupPane`, `restorePanes` |
+
+### The runtime, specifically
+
+love.js needs **SharedArrayBuffer**, which needs **cross-origin isolation**
+(COOP: same-origin, COEP: require-corp/credentialless). On a static host that's
+granted by `coi-serviceworker.js` (gzuidhof) — no server config. The preview is a
+**fresh iframe per run** so each boot gets a clean `Module`. The iframe document
+is a `blob:`, so player.js's relative engine URLs (`lua/…`, `11.5/love.wasm`)
+can't resolve against the blob base — fixed with a `<base href>` pointing at the
+love.js CDN root. An iframe→parent `postMessage` bridge carries `print`/errors
+back out; that bridge is also the agent's witnessing signal ("booted vs Lua
+error").
+
+---
+
+## 4. How we work (process)
+
+Adapted from the Ruju project's methodology, right-sized for a single-file app.
+
+### Oracle-as-reference, not spec
+`notebook.html` is where the notebook-IDE ideas come from. We read the relevant
+part before building a feature it shares, cite what we took, and **record where
+we diverge** (§6). LoveIDE is allowed — encouraged — to differ; the oracle is a
+compass, not a blueprint.
+
+### The claim ladder
+Every claim is graded by the strongest rung its evidence actually reaches:
+**Stated → Tested (headless) → Dependency-verified → Browser-verified.** A claim
+must never sit a rung above its evidence. Three things are browser-verifiable
+*only* in our sandbox and are always flagged as such: **love.js boot**,
+**WebLLM/WebGPU**, and **CDN library loads**. (Full statement in `CLAUDE.md`.)
+
+### The increment loop
+Build the smallest coherent slice → verify it as far up the ladder as the sandbox
+allows → report honestly (what was seen, what couldn't be tested) → update
+`TODO.md` and this ledger. The user drives design and picks the next slice.
+
+### Recording intent and divergence
+When a decision is non-obvious (why IndexedDB not OPFS; why static analysis not a
+runtime debug bridge; why no DuckDB substrate), it gets written down — in a "why"
+comment at the code site and, if it shapes the architecture, in §6 here.
+
+---
+
+## 5. How LoveIDE differs from the oracle
+
+The oracle is built around a **DuckDB runtime substrate** shared with a
+**reactivity** branch. LoveIDE has neither, and that *simplifies* the foundation:
+
+- **No DB substrate.** `main.lua` is already the single source of truth; Sight is
+  the serialized doc + static analysis + Console, with no `_ql_*` / DuckDB layer.
+- **No reactivity branch.** `main.lua` is one program, not a reactive cell graph,
+  so the oracle's heavy "build the substrate once" step largely collapses for us.
+- **Sight is static + Console**, not live runtime values. We parse the source
+  (luaparse → Variables/Tables) rather than reading `player.x` at frame 600. A
+  live debug bridge is an open option, not a commitment.
+- **Witnessing is coarser but already wired** — "the `.love` booted without a Lua
+  error," via the Console bridge — vs the oracle's typed query/var results.
+- **Checkpoint/revert is nearly free** — a snapshot is `serialize(nb.doc)` (+
+  conf); the History machinery already exists. No `exportDBBytes` analog.
+
+---
+
+## 6. Status & divergence ledger
+
+Coarse, per-subsystem. Status is the highest claim rung currently justified.
+`B` = browser-verified, `D` = dependency-verified, `T` = tested headless,
+`S` = stated.
+
+| Subsystem | Status | Notes / divergence from oracle |
+|-----------|:------:|--------------------------------|
+| Doc model | **B** | Round-trip invariant covered by self-tests; `-- %%` separators + long-bracket md comments. Our own model — oracle's is SQL/Python-cell oriented. |
+| Markdown | **B** | marked.js + built-in fallback. |
+| State / localStorage | **B** | doc / history / conf / theme / opts. |
+| Assets / IndexedDB | **D** | Blobs in IDB (not base64). **Divergence considered:** OPFS rejected — no user-visible files, Chromium-leaning; IDB is enough and portable. Build-time inclusion is browser-only to confirm end-to-end. |
+| Theme | **B** | 6 themes; brand pink `#EC4899` / steel `#7C8A99`. Heart-`</>` mark shelved. |
+| CodeMirror editor | **B** (load **browser-only**) | Lua via legacy mode; textarea fallback if CDN blocked. |
+| Cell UI / reorder | **B** | Ported drag-to-reorder from the oracle. |
+| Static analysis | **D** | luaparse AST → symbols + records-as-grid; validated in node against real luaparse. **Divergence:** oracle's Variables/Tables are *runtime*; ours are *static source*. Same UI intent, different data source. |
+| Activity panels | **B** | Outline / Lua libs / LÖVE API reference. |
+| Runtime (love.js) | **browser-only** | Boots when served cross-origin-isolated; `<base href>` fix landed and user-confirmed once ("It works!"). Cross-browser sweep still owed. Not exercisable in sandbox (CDN egress blocked). |
+| Console | **S → planned** | Currently a strip under the canvas; promote to a real RHS tab (TODO Step 1) — it's also the agent's Sight/witness channel. |
+| Export `.love` | **D** | JSZip build incl. main.lua + conf + assets + libs. Download path browser-only. |
+| conf.lua | **B** | `generateConfLua`, defaults, Game-settings panel. |
+| Agent — local | **browser-only** | WebLLM manager (Qwen2.5-Coder 1.5B/3B/7B), install/activate, VRAM gate, streaming chat. Untestable in sandbox (no GPU). Chat is otherwise **blind** — Sight v0 sends raw `main.lua` only. |
+| Agent — Sight/Hands/Modes/Backends | **S** | Designed in `TODO.md` (Steps 1–10); not built. |
+| Hosting | **B** | GitHub Pages from `main`; `coi-serviceworker.js` grants isolation; `index.html` redirects root → `engine.html`. |
+
+When a row's rung changes or a new divergence is decided, update it here in the
+same commit as the code change.

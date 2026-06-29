@@ -8,14 +8,37 @@
   LoveIDE — a single-file, in-browser IDE for authoring LÖVE (Love2D) games.
   (The whole app is one file, engine.html.)
 
+  ── Architecture ────────────────────────────────────────────────────────────
   main.lua IS the single source of truth; the notebook is a pure projection over
-  it, and the file always stays a valid, runnable .lua. Design language and many
-  component patterns are drawn from Neodide's notebook.html (the oracle): the
-  theme system, layout, cell cards with badge type-switching, inter-cell insert
-  zones, hover actions, collapse, Markdown WYSIWYG, CodeMirror 6 editing, and
-  marked-based Markdown rendering — adapted from Python/SQL to Lua/LÖVE.
+  it, and the file always stays a valid, runnable .lua. The invariant the whole
+  app rests on:
 
-  The doc model (parse/serialize) and the love.js runtime are engine.html's own.
+      serialize(parse(src)) === src       // byte-for-byte, always
+
+  One source feeds many read-only projections (cell UI, static analysis, the
+  agent's Sight, the .love build); only the cell editors and — eventually — the
+  agent's Hands write back. Persistence splits by data shape: structured state in
+  localStorage (doc · history · conf · theme · opts), binary assets in IndexedDB.
+  The runtime builds a .love with JSZip and boots it in a FRESH iframe per run
+  (clean love.js Module each time). See design.md for the full map + ledger.
+
+  Design language and many component patterns are drawn from Neodide's
+  notebook.html (the oracle, a DESIGN REFERENCE not a spec): theme system,
+  layout, cell cards with badge type-switching, inter-cell insert zones, hover
+  actions, collapse, Markdown WYSIWYG, CodeMirror 6 editing, marked-based
+  rendering — adapted from Python/SQL to Lua/LÖVE. The doc model (parse/
+  serialize) and the love.js runtime are engine.html's own.
+
+  ── Contents ────────────────────────────────────────────────────────────────
+  <style>  CSS, numbered 1–10:
+    1 Base & reset   2 Theme variables   3 Layout   4 Topbar   5 Status bar
+    6 Notebook + cells   7 Panels (left pane)   8 Preview (right pane)
+    9 Markdown output   10 Toast
+  <script> JS, numbered 0–10:
+    0 Icons   1 Doc model   2 Markdown   3 State + persistence   4 Theme
+    5 CodeMirror   6 Cell DOM   6b Activity-bar panels   7 Runtime
+    8 Export   9 Self-tests   10 Wiring + boot
+  (Each section is marked by a ════ banner; this list is its table of contents.)
 -->
 
 <!-- marked.js for Markdown is loaded NON-blocking at boot (see loadMarked());
