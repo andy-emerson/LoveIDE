@@ -174,7 +174,6 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
  * ════════════════════════════════════════════════════════════════════════════ */
 .topbar { display: flex; align-items: center; gap: 6px; padding: 0 14px; background: var(--bg-primary); border-bottom: .5px solid var(--border-faint); flex-shrink: 0; height: 52px; }
 .topbar-logo { display: flex; align-items: center; gap: 8px; margin-right: 8px; user-select: none; }
-.topbar-logo .mark { width: 26px; height: 26px; color: var(--brand-love); }
 .topbar-logo .word { font-size: 28px; font-weight: 700; letter-spacing: .005em; line-height: 1; }
 .topbar-logo .word .b-love { color: var(--brand-love); }
 .topbar-logo .word .b-ide  { color: var(--brand-ide); }
@@ -439,7 +438,6 @@ input[type=file] { display: none; }
   <!-- ───────────────────────── Topbar ───────────────────────── -->
   <div class="topbar">
     <div class="topbar-logo">
-      <span class="mark" id="logo-mark"></span>
       <span class="word"><span class="b-love">Love</span><span class="b-ide">IDE</span></span>
     </div>
     <div class="topbar-sep"></div>
@@ -655,20 +653,6 @@ const I = {
 };
 function svg(name, cls) {
   return `<svg class="${cls||''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${I[name]||''}</svg>`;
-}
-// LoveIDE brand mark: a pink heart with "</>" knocked out (white) in the
-// lower-right quadrant. Single shape, scales down to favicon size.
-const BRAND_HEART = 'M12 21s-7-4.5-9.3-9C1 8.6 2.6 5 6 5c2 0 3.2 1.2 4 2.5C10.8 6.2 12 5 14 5c3.4 0 5 3.6 3.3 7-2.3 4.5-9.3 9-9.3 9z';
-const BRAND_BRACKETS = ['M14.7 12 L13.2 13.6 L14.7 15.2','M16 11.6 L14.4 15.6','M15.8 12 L17.3 13.6 L15.8 15.2'];
-function brandSVG(size, fill){
-  const br = BRAND_BRACKETS.map(d=>`<path d="${d}" fill="none" stroke="#fff" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>`).join('');
-  return `<svg viewBox="0 0 24 24" width="${size||24}" height="${size||24}"><path d="${BRAND_HEART}" fill="${fill||'var(--brand-love)'}"/>${br}</svg>`;
-}
-function setFavicon(){
-  const data = 'data:image/svg+xml,' + encodeURIComponent(brandSVG(32, '#EC4899'));
-  let link = document.querySelector("link[rel='icon']");
-  if (!link){ link = document.createElement('link'); link.rel='icon'; document.head.appendChild(link); }
-  link.type='image/svg+xml'; link.href=data;
 }
 function paintIcons(root=document) {
   root.querySelectorAll('[data-ico]').forEach(el => { el.innerHTML = svg(el.dataset.ico) + (el.childNodes.length && el.dataset.keep ? '' : ''); });
@@ -977,13 +961,6 @@ async function addAssets(fileList){
   renderAssets();
   toast(files.length+' asset(s) added');
 }
-// One-time migration: move any old localStorage data-URL assets into IndexedDB.
-async function migrateAssets(){
-  let old=[]; try { old=JSON.parse(lsGet(LS.assets,'[]')); } catch(e){}
-  if (!old.length) return;
-  for (const a of old){ try { const blob=await (await fetch(a.dataURL)).blob(); await idbPutAsset({ name:a.name, blob, size:a.size||blob.size, type:blob.type }); } catch(e){} }
-  lsSet(LS.assets,'[]');
-}
 
 /* ── Game settings → conf.lua (generated into the .love at build) ── */
 const CONF_DEFAULTS = { title:'Untitled', identity:'loveide-game', version:'11.5', width:800, height:600, resizable:false, vsync:true, fullscreen:false };
@@ -1143,7 +1120,6 @@ async function upgradeAllEditors(){
   if (!(await loadCM())) return;
   $$('.cell').forEach(el=>{ const c=nb.doc.cells.find(x=>x.id===+el.dataset.id); if(c && c.type==='lua') upgradeEditor(el,c); });
 }
-function cellCode(cell){ const v=nb.editor.views.get(cell.id); return v ? v.state.doc.toString() : cell.code; }
 function syncFromEditors(){ nb.doc.cells.forEach(c=>{ const v=nb.editor.views.get(c.id); if(v) c.code=v.state.doc.toString(); }); }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -2065,15 +2041,13 @@ function registerIsolationSW(){
 
 function boot(){
   try { nb.opts = Object.assign(nb.opts, JSON.parse(lsGet(LS.opts,'{}'))); } catch(e){}
-  // Logo mark + favicon shelved for now (brandSVG/setFavicon kept for later).
-  const lm=$('#logo-mark'); if(lm) lm.remove();
   $('#placeholder-icon').innerHTML=`<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${I.play}</svg>`;
   paintIcons();
   applyTheme();
   loadDoc();
   wire();
   renderNotebook();
-  migrateAssets().then(renderAssets);
+  renderAssets();
   renderHistory();
   renderOutline();
   renderLibs();
