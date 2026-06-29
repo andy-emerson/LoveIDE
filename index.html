@@ -850,11 +850,11 @@ function refreshMarkdownCells(){
 /* ════════════════════════════════════════════════════════════════════════════
  * 3. STATE + PERSISTENCE
  * ════════════════════════════════════════════════════════════════════════════ */
-// Keys keep the historical `engine.html:` prefix even though the file is now
-// index.html — localStorage is origin-scoped, not path-scoped, so renaming them
-// would orphan existing users' saved doc/history/conf. The prefix is an opaque
-// namespace; it does not need to match the filename.
-const LS = { doc:'engine.html:main.lua', hist:'engine.html:history', assets:'engine.html:assets', theme:'engine.html:theme', opts:'engine.html:opts' };
+// Persistence keys (origin-scoped localStorage). The `loveide:` prefix is a
+// stable namespace, deliberately decoupled from the filename so a future rename
+// never strands saved state again. Legacy `engine.html:*` keys (the app's old
+// filename) are carried forward once by migrateLegacyKeys() at boot.
+const LS = { doc:'loveide:main.lua', hist:'loveide:history', assets:'loveide:assets', theme:'loveide:theme', opts:'loveide:opts' };
 const SEED = `--[[
 # LoveIDE
 
@@ -897,6 +897,24 @@ const nb = {
 
 function lsGet(k,d){ try { const v=localStorage.getItem(k); return v==null?d:v; } catch(e){ return d; } }
 function lsSet(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+
+// One-time rename of the legacy `engine.html:*` persistence keys (the app's old
+// filename) to the `loveide:` prefix. localStorage is origin-scoped, so renaming
+// the file left old saves stranded under the old keys; this copies them forward
+// and drops the originals so existing notebooks survive. Must run before any LS
+// read in boot(). The null-guard avoids clobbering newer data if it ever reruns.
+// Safe to delete this shim once no live origin still holds engine.html:* keys.
+function migrateLegacyKeys(){
+  const OLD='engine.html:', NEW='loveide:';
+  try {
+    for (const k of Object.keys(localStorage)){
+      if (!k.startsWith(OLD)) continue;
+      const nk = NEW + k.slice(OLD.length);
+      if (localStorage.getItem(nk)==null) lsSet(nk, localStorage.getItem(k));
+      localStorage.removeItem(k);
+    }
+  } catch(e){}
+}
 
 function loadDoc(){ nb.doc = parse(lsGet(LS.doc, SEED)); }
 function saveDoc(snapshot){
@@ -989,8 +1007,8 @@ async function migrateAssets(){
 
 /* ── Game settings → conf.lua (generated into the .love at build) ── */
 const CONF_DEFAULTS = { title:'Untitled', identity:'loveide-game', version:'11.5', width:800, height:600, resizable:false, vsync:true, fullscreen:false };
-function readConf(){ try { return Object.assign({}, CONF_DEFAULTS, JSON.parse(lsGet('engine.html:conf','{}'))); } catch(e){ return Object.assign({}, CONF_DEFAULTS); } }
-function writeConf(c){ lsSet('engine.html:conf', JSON.stringify(c)); }
+function readConf(){ try { return Object.assign({}, CONF_DEFAULTS, JSON.parse(lsGet('loveide:conf','{}'))); } catch(e){ return Object.assign({}, CONF_DEFAULTS); } }
+function writeConf(c){ lsSet('loveide:conf', JSON.stringify(c)); }
 function luaStr(s){ return '"' + String(s).replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/\n/g,'\\n') + '"'; }
 function generateConfLua(){
   const c=readConf();
@@ -1032,7 +1050,7 @@ async function renderStorage(){
   const cats=[
     { label:'main.lua',  bytes:lsBytes(LS.doc) },
     { label:'Snapshots', bytes:lsBytes(LS.hist) },
-    { label:'Libraries', bytes:lsBytes('engine.html:libs'), clear:()=>{ lsSet('engine.html:libs','[]'); renderLibs(); } },
+    { label:'Libraries', bytes:lsBytes('loveide:libs'), clear:()=>{ lsSet('loveide:libs','[]'); renderLibs(); } },
     { label:'Assets (IndexedDB)', bytes:assetBytes, clear:async()=>{ await idbClearAssets(); renderAssets(); } },
   ];
   // Real origin usage/quota (covers localStorage + IndexedDB), via the
@@ -1540,8 +1558,8 @@ const LIB_REGISTRY = [
 ];
 function libPath(e){ return e.path || ('lib/'+e.id+'.lua'); }
 function libRequire(e){ return libPath(e).replace(/^/,'').replace(/\.lua$/,'').replace(/\//g,'.'); }
-function readLibs(){ try { return JSON.parse(lsGet('engine.html:libs','[]')); } catch(e){ return []; } }
-function writeLibs(l){ lsSet('engine.html:libs', JSON.stringify(l)); renderLibs(); }
+function readLibs(){ try { return JSON.parse(lsGet('loveide:libs','[]')); } catch(e){ return []; } }
+function writeLibs(l){ lsSet('loveide:libs', JSON.stringify(l)); renderLibs(); }
 function renderLibs(){
   const wrap=$('#lib-list'); if(!wrap) return; wrap.innerHTML='';
   const installed=new Set(readLibs().map(l=>l.id));
@@ -1957,7 +1975,7 @@ function switchTab(name){
   $$('#left-pane .pane-panel').forEach(p=>p.classList.toggle('active',p.dataset.tab===name));
 }
 // Open a left tab and ensure the pane is expanded (used by status-bar links etc.)
-function openTab(name){ switchTab(name); if(PANES.left && PANES.left.isCollapsed()) PANES.left.expand(); lsSet('engine.html:leftTab',name); }
+function openTab(name){ switchTab(name); if(PANES.left && PANES.left.isCollapsed()) PANES.left.expand(); lsSet('loveide:leftTab',name); }
 
 /* ── Panes — oracle-style: drag to resize (clamped + persisted), and the
  *    activity-bar buttons collapse/expand the pane. ── */
@@ -1966,7 +1984,7 @@ function setupPane(side){
   const isLeft = side==='left';
   const pane = $('#'+(isLeft?'left-pane':'right-pane'));
   const resizer = $('#'+(isLeft?'left-resizer':'right-resizer'));
-  const KEY = 'engine.html:'+side+'Width';
+  const KEY = 'loveide:'+side+'Width';
   const MIN = isLeft ? 190 : 300;
   const maxW = () => isLeft ? 520 : Math.max(MIN, window.innerWidth - $('#left-pane').offsetWidth - 88 - 320);
   const clamp = w => Math.max(MIN, Math.min(maxW(), w));
@@ -1988,11 +2006,11 @@ function wireActivityBars(){
       if (!PANES.left.isCollapsed() && btn.classList.contains('active')){
         PANES.left.collapse();
         $$('#left-activity-bar .activity-bar-btn').forEach(b=>b.classList.remove('active'));
-        lsSet('engine.html:leftTab','');
+        lsSet('loveide:leftTab','');
       } else {
         switchTab(tab);
         if (PANES.left.isCollapsed()) PANES.left.expand();
-        lsSet('engine.html:leftTab',tab);
+        lsSet('loveide:leftTab',tab);
         if (tab==='settings'){ renderStorage(); renderAgentGPU(); renderAgentLocal(); if(!agent.installedChecked && agent.gpu && agent.gpu.supported) agentRefreshInstalled(); }
         if (tab==='assistant') renderAgentTab();
       }
@@ -2004,11 +2022,11 @@ function wireActivityBars(){
       if (!PANES.right.isCollapsed() && btn.classList.contains('active')){
         PANES.right.collapse();
         $$('#right-activity-bar .activity-bar-btn').forEach(b=>b.classList.remove('active'));
-        lsSet('engine.html:rightTab','');
+        lsSet('loveide:rightTab','');
       } else {
         switchRightTab(tab);
         if (PANES.right.isCollapsed()) PANES.right.expand();
-        lsSet('engine.html:rightTab',tab);
+        lsSet('loveide:rightTab',tab);
       }
     };
   });
@@ -2023,10 +2041,10 @@ function switchRightTab(name){
   if (name==='tables') renderTablesTab();
 }
 function restorePanes(){
-  const lt=lsGet('engine.html:leftTab', undefined);
+  const lt=lsGet('loveide:leftTab', undefined);
   if (lt===''){ PANES.left.collapse(); $$('#left-activity-bar .activity-bar-btn').forEach(b=>b.classList.remove('active')); }
   else if (lt){ switchTab(lt); if(lt==='settings') renderStorage(); }
-  const rt=lsGet('engine.html:rightTab','preview');
+  const rt=lsGet('loveide:rightTab','preview');
   if (rt===''){ PANES.right.collapse(); $$('#right-activity-bar .activity-bar-btn').forEach(b=>b.classList.remove('active')); }
   else { switchRightTab(rt); }
 }
@@ -2066,6 +2084,7 @@ function registerIsolationSW(){
 }
 
 function boot(){
+  migrateLegacyKeys();   // carry forward any engine.html:* saves before first read
   try { nb.opts = Object.assign(nb.opts, JSON.parse(lsGet(LS.opts,'{}'))); } catch(e){}
   // Logo mark + favicon shelved for now (brandSVG/setFavicon kept for later).
   const lm=$('#logo-mark'); if(lm) lm.remove();
