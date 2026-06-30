@@ -294,6 +294,18 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 /* settings (themes) */
 .settings-body { padding: 14px; display: flex; flex-direction: column; gap: 16px; }
 .settings-label { font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; }
+/* Collapsible Settings sections (same collapse convention as the Variables tab). */
+#panel-settings .settings-body { gap: 0; }   /* sections self-space via header padding + divider */
+.settings-section { border-top: .5px solid var(--border-faint); }
+.settings-section:first-child { border-top: none; }
+.settings-section-header { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-secondary); padding: 12px 0 10px; }
+.settings-section:first-child .settings-section-header { padding-top: 2px; }
+.settings-section-header:hover { color: var(--text-primary); }
+.settings-chev { display: inline-flex; flex-shrink: 0; color: var(--text-tertiary); transition: transform .15s; transform: rotate(90deg); }
+.settings-chev svg { width: 13px; height: 13px; }
+.settings-section.collapsed .settings-chev { transform: rotate(0deg); }
+.settings-section.collapsed .settings-section-body { display: none; }
+.settings-section-body { display: flex; flex-direction: column; gap: 16px; }
 .seg { display: flex; gap: 4px; flex-wrap: wrap; }
 .seg button { flex: 1; min-width: 56px; background: var(--bg-secondary); border: .5px solid var(--border-light); border-radius: 6px; color: var(--text-secondary); font-size: 11px; padding: 6px 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; }
 .seg button.active { background: var(--fn-execute-bg); border-color: transparent; color: var(--fn-execute); }
@@ -357,8 +369,9 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 /* Variables panel (ported from the oracle's var-list) */
 .pane-note { font-size: 10px; color: var(--text-tertiary); font-style: italic; padding: 6px 12px; }
 .var-section { font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--text-tertiary); padding: 9px 12px 3px; display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; }
-.var-section .chev { transition: transform .15s; }
-.var-section.collapsed .chev { transform: rotate(-90deg); }
+.var-section .chev { display: inline-flex; flex-shrink: 0; transition: transform .15s; transform: rotate(90deg); }
+.var-section .chev svg { width: 13px; height: 13px; }
+.var-section.collapsed .chev { transform: rotate(0deg); }
 .var-section .count { margin-left: auto; font-weight: 400; }
 .var-row { padding: 5px 12px; border-bottom: .5px solid var(--border-faint); }
 .var-row:hover { background: var(--bg-secondary); }
@@ -529,34 +542,43 @@ input[type=file] { display: none; }
       <div class="pane-panel" id="panel-settings" data-tab="settings">
         <div class="pane-header">Settings</div>
         <div class="settings-body">
-          <div>
-            <div class="settings-label">Brightness</div>
-            <div class="seg" id="seg-mode">
-              <button data-mode="light">Light</button>
-              <button data-mode="dark">Dark</button>
-              <button data-mode="auto">Auto</button>
+          <div class="settings-section" data-sec="appearance">
+            <div class="settings-section-header"><span class="settings-chev" data-ico="chevron"></span><span>Appearance</span></div>
+            <div class="settings-section-body">
+              <div>
+                <div class="settings-label">Brightness</div>
+                <div class="seg" id="seg-mode">
+                  <button data-mode="light">Light</button>
+                  <button data-mode="dark">Dark</button>
+                  <button data-mode="auto">Auto</button>
+                </div>
+              </div>
+              <div>
+                <div class="settings-label">Tone</div>
+                <div class="seg" id="seg-tone">
+                  <button data-tone="warm">Warm</button>
+                  <button data-tone="cool">Cool</button>
+                  <button data-tone="neutral">Mono</button>
+                </div>
+              </div>
+              <div>
+                <div class="settings-label">Editor</div>
+                <label class="setting-toggle"><span>Line numbers</span><input type="checkbox" id="opt-linenums"></label>
+              </div>
             </div>
           </div>
-          <div>
-            <div class="settings-label">Tone</div>
-            <div class="seg" id="seg-tone">
-              <button data-tone="warm">Warm</button>
-              <button data-tone="cool">Cool</button>
-              <button data-tone="neutral">Mono</button>
+          <div class="settings-section" data-sec="storage">
+            <div class="settings-section-header"><span class="settings-chev" data-ico="chevron"></span><span>Storage</span></div>
+            <div class="settings-section-body">
+              <div id="storage-body"></div>
             </div>
           </div>
-          <div>
-            <div class="settings-label">Editor</div>
-            <label class="setting-toggle"><span>Line numbers</span><input type="checkbox" id="opt-linenums"></label>
-          </div>
-          <div>
-            <div class="settings-label">Storage</div>
-            <div id="storage-body"></div>
-          </div>
-          <div>
-            <div class="settings-label">Agent</div>
-            <div id="agent-gpu" style="font-size:12px;line-height:1.45;color:var(--text-secondary)">Checking GPU…</div>
-            <div id="agent-local" style="margin-top:10px"></div>
+          <div class="settings-section" data-sec="agent">
+            <div class="settings-section-header"><span class="settings-chev" data-ico="chevron"></span><span>Agent</span></div>
+            <div class="settings-section-body">
+              <div id="agent-gpu" style="font-size:12px;line-height:1.45;color:var(--text-secondary)">Checking GPU…</div>
+              <div id="agent-local" style="margin-top:10px"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -2263,6 +2285,16 @@ function restorePanes(){
   if (rt===''){ PANES.right.collapse(); $$('#right-activity-bar .activity-bar-btn').forEach(b=>b.classList.remove('active')); }
   else { switchRightTab(rt); }
 }
+// Collapsible Settings sections — header click toggles; collapsed state persists
+// per-section in localStorage (a legit prefs use). Same convention as Variables.
+function initSettingsSections(){
+  $$('#panel-settings .settings-section').forEach(sec=>{
+    const head=sec.querySelector('.settings-section-header'); if(!head) return;
+    const key='loveide:sec:'+sec.dataset.sec;
+    if(lsGet(key,'0')==='1') sec.classList.add('collapsed');
+    head.onclick=()=>{ const c=sec.classList.toggle('collapsed'); lsSet(key, c?'1':'0'); };
+  });
+}
 function wire(){
   $('#btn-run').onclick=run;
   $('#btn-stop').onclick=stopPreview;
@@ -2301,6 +2333,7 @@ async function boot(){
   applyTheme();
   await loadAll();
   wire();
+  initSettingsSections();
   renderNotebook();
   renderAssets();
   renderHistory();
