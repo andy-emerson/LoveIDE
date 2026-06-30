@@ -311,6 +311,16 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .seg button.active { background: var(--fn-execute-bg); border-color: transparent; color: var(--fn-execute); }
 .seg button:hover:not(.active) { color: var(--text-primary); }
 .setting-toggle { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--text-secondary); }
+/* Checkbox-as-switch — .setting-toggle checkboxes (Line numbers, conf booleans) and any input.switch (VRAM toggle). */
+.setting-toggle input[type="checkbox"], input.switch { appearance: none; -webkit-appearance: none; margin: 0; position: relative; flex-shrink: 0; width: 34px; height: 18px; border-radius: 99px; background: var(--bg-tertiary); border: .5px solid var(--border-light); cursor: pointer; transition: background .15s, border-color .15s; }
+.setting-toggle input[type="checkbox"]:checked, input.switch:checked { background: var(--fn-success); border-color: transparent; }
+.setting-toggle input[type="checkbox"]::after, input.switch::after { content: ''; position: absolute; top: 50%; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.35); transform: translateY(-50%); transition: left .15s, right .15s; }
+.setting-toggle input[type="checkbox"]:checked::after, input.switch:checked::after { left: auto; right: 2px; }
+.setting-toggle input[type="checkbox"]:disabled, input.switch:disabled { opacity: .5; cursor: default; }
+.agent-field-label { font-size: 12px; color: var(--text-secondary); }
+.agent-row { display: flex; align-items: center; gap: 10px; }
+.agent-select { flex: 1; min-width: 0; padding: 5px 8px; border: .5px solid var(--border-light); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 12px; cursor: pointer; }
+.agent-select:disabled { opacity: .55; cursor: default; }
 
 /* Game (conf.lua) fields */
 .conf-grid { display: flex; flex-direction: column; gap: 8px; }
@@ -338,6 +348,12 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .storage-foot { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--text-primary); padding: 7px 0 2px; margin-top: 6px; border-top: 1px solid var(--border-light); }
 .storage-foot .grow { flex: 1; }
 .storage-foot .val { font-family: var(--font-mono); }
+/* Value font scales subtly with magnitude (experiment): B < KB < MB < GB. Labels unaffected. */
+.val.byte-b  { font-size: 10px; }
+.val.byte-kb { font-size: 12px; }
+.val.byte-mb { font-size: 14px; }
+.val.byte-gb { font-size: 16px; }
+.val.byte-tb { font-size: 18px; }
 
 /* activity bar: push a button to the bottom (Settings) */
 .act-bottom { margin-top: auto; }
@@ -984,7 +1000,8 @@ function renderHistory(){
   });
 }
 
-function fmtBytes(n){ if(n<1024)return n+' B'; if(n<1048576)return (n/1024).toFixed(1)+' KB'; return (n/1048576).toFixed(1)+' MB'; }
+function fmtBytes(n){ if(n<1024)return n+' B'; if(n<1048576)return (n/1024).toFixed(1)+' KB'; if(n<1073741824)return (n/1048576).toFixed(1)+' MB'; if(n<1099511627776)return (n/1073741824).toFixed(1)+' GB'; return (n/1099511627776).toFixed(1)+' TB'; }
+function byteTier(n){ return n<1024?'b':n<1048576?'kb':n<1073741824?'mb':n<1099511627776?'gb':'tb'; }   // unit tier, for size-scaled value font
 
 // ── Assets: stored in IndexedDB as Blobs (large quota, no base64 inflation,
 //    not capped at localStorage's ~5 MB). Records: {name, blob, size, type}.
@@ -1166,18 +1183,16 @@ async function renderStorage(){
   const wrap=$('#storage-body'); if(!wrap) return;
   const assets=await idbAllAssets();
   const assetBytes=assets.reduce((s,a)=>s+(a.size||0),0);
-  const secRec=await idbGet('secrets','data');
   const cache=await cacheScan();
   const dataRows=[
     ['main.lua',  jsonBytes(serialize(nb.doc))],
-    ['Snapshots', jsonBytes(nb.history)],
-    ['Libraries', jsonBytes(nb.libs)],
     ['Assets',    assetBytes],
-    ['Secrets',   secRec ? jsonBytes(secRec) : 0],
+    ['Libraries', jsonBytes(nb.libs)],
+    ['History',   jsonBytes(nb.history)],
   ];
   const cacheRows=[
     ['Agents',           cache.agents],
-    ['Engine (love.js)', cache.engine],
+    ['Engine', cache.engine],
   ];
   const dataTotal=dataRows.reduce((s,r)=>s+r[1],0);
   const cacheTotal=cacheRows.reduce((s,r)=>s+r[1],0);
@@ -1193,14 +1208,19 @@ async function renderStorage(){
   if(quota!=null){ const pct=used/quota*100; fillW=Math.min(100,pct); fillCls = pct>=100?' full' : pct>=80?' warn' : ''; }
   wrap.appendChild(elem('div',{class:'storage-bar'},[ elem('div',{class:'storage-fill'+fillCls,style:'width:'+fillW+'%'}) ]));
 
-  const grp=(label,sub)=>elem('div',{class:'storage-group'},[ elem('span',{class:'grow',text:label}), elem('span',{class:'val',text:fmtBytes(sub)}) ]);
-  const row=(label,bytes)=>elem('div',{class:'storage-row indent'},[ elem('span',{class:'grow',text:label}), elem('span',{class:'val',text:fmtBytes(bytes)}) ]);
-  wrap.appendChild(grp('Local Data', dataTotal));
+  // Value font scales with the unit tier (B<KB<MB<GB) — only the number, not the label.
+  // Section headers carry no subtotal — so Total reads as a plain sum of every
+  // item (all data rows + all cache rows + Other). dataTotal/cacheTotal remain
+  // only for computing Other.
+  const valSpan=(bytes)=>elem('span',{class:'val byte-'+byteTier(bytes),text:fmtBytes(bytes)});
+  const grp=(label)=>elem('div',{class:'storage-group'},[ elem('span',{class:'grow',text:label}) ]);
+  const row=(label,bytes)=>elem('div',{class:'storage-row indent'},[ elem('span',{class:'grow',text:label}), valSpan(bytes) ]);
+  wrap.appendChild(grp('Local Data'));
   dataRows.forEach(r=>wrap.appendChild(row(r[0], r[1])));
-  wrap.appendChild(grp('Local Cache', cacheTotal));
+  wrap.appendChild(grp('Local Cache'));
   cacheRows.forEach(r=>wrap.appendChild(row(r[0], r[1])));
-  if(usage!=null && other>0) wrap.appendChild(elem('div',{class:'storage-row'},[ elem('span',{class:'grow',text:'Other'}), elem('span',{class:'val',text:fmtBytes(other)}) ]));
-  wrap.appendChild(elem('div',{class:'storage-foot'},[ elem('span',{class:'grow',text:'Total'}), elem('span',{class:'val',text:fmtBytes(used)}) ]));
+  if(usage!=null && other>0) wrap.appendChild(elem('div',{class:'storage-row'},[ elem('span',{class:'grow',text:'Other'}), valSpan(other) ]));
+  wrap.appendChild(elem('div',{class:'storage-foot'},[ elem('span',{class:'grow',text:'Total'}), valSpan(used) ]));
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -1849,12 +1869,14 @@ function insertSnippet(text){
  * in Settings → Agent; the Agent tab is the chat. WebGPU + CDN required. */
 const WEBLLM_CDN = 'https://esm.run/@mlc-ai/web-llm';
 const AGENT_MODELS = [
-  { id:'Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC', label:'Qwen2.5-Coder 1.5B', tier:'Fast',     vramMB:1630 },
-  { id:'Qwen2.5-Coder-3B-Instruct-q4f16_1-MLC',   label:'Qwen2.5-Coder 3B',   tier:'Balanced', vramMB:2505 },
-  { id:'Qwen2.5-Coder-7B-Instruct-q4f16_1-MLC',   label:'Qwen2.5-Coder 7B',   tier:'Expert',   vramMB:5107 },
+  // diskMB = download/cache size (shown in the dropdown); vramMB = memory to RUN
+  // (used for the GPU fit check). They differ: running needs more than the weights.
+  { id:'Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC', family:'Qwen 2.5', tier:'Fast',     diskMB:800,  vramMB:1630 },
+  { id:'Qwen2.5-Coder-3B-Instruct-q4f16_1-MLC',   family:'Qwen 2.5', tier:'Balanced', diskMB:1600, vramMB:2505 },
+  { id:'Qwen2.5-Coder-7B-Instruct-q4f16_1-MLC',   family:'Qwen 2.5', tier:'Expert',   diskMB:4300, vramMB:5107 },
 ];
 const agent = { gpu:null, llm:null, engine:null, installed:new Set(), installedChecked:false, activeId:null, busyId:null, op:'', progress:'', generating:false, error:'', messages:[] };
-function agentLabelFor(id){ const m=AGENT_MODELS.find(x=>x.id===id); return m?m.label:id; }
+function agentLabelFor(id){ const m=AGENT_MODELS.find(x=>x.id===id); return m?(m.family+' ('+m.tier+')'):id; }
 function agentErr(e){ return (e&&e.message)?e.message:String(e); }
 
 async function detectWebGPU(){
@@ -1868,52 +1890,71 @@ async function detectWebGPU(){
 function agentModelFits(m){ const g=agent.gpu; if(!g||!g.supported) return false; const lim=g.maxBufferSize||0; if(!lim) return true; return m.vramMB*1048576<=lim; }
 async function agentEnsureModule(){ if(!agent.llm) agent.llm=await import(WEBLLM_CDN); return agent.llm; }
 async function agentEnsureEngine(){ await agentEnsureModule(); if(!agent.engine) agent.engine=new agent.llm.MLCEngine(); return agent.engine; }
+// Detect which models are on disk by scanning the Cache API directly (no WebLLM
+// import needed) — model-weight URLs contain the model id. Same source the
+// Storage panel measures, so the dropdown and Storage always agree.
+async function agentDetectInstalled(){
+  const found=new Set();
+  if(!('caches' in window)) return found;
+  try { for(const name of await caches.keys()){ const c=await caches.open(name); for(const req of await c.keys()){ const m=AGENT_MODELS.find(x=>req.url.includes(x.id)); if(m) found.add(m.id); } } }
+  catch(e){ console.error('[WebLLM] cache detect failed',e); }
+  return found;
+}
+// Delete every cached model except keepId, straight from the Cache API (works
+// without importing WebLLM, so "None" reliably frees the disk).
+async function agentPurgeCache(keepId){
+  if(!('caches' in window)) return;
+  try { for(const name of await caches.keys()){ const c=await caches.open(name); for(const req of await c.keys()){ const m=AGENT_MODELS.find(x=>req.url.includes(x.id)); if(m && m.id!==keepId) await c.delete(req); } } }
+  catch(e){ console.error('[WebLLM] cache purge failed',e); }
+}
 async function agentRefreshInstalled(){
-  try { await agentEnsureModule(); const found=new Set(); for(const m of AGENT_MODELS){ try{ if(await agent.llm.hasModelInCache(m.id)) found.add(m.id); }catch(e){} } agent.installed=found; }
-  catch(e){ console.error('[WebLLM] cache probe failed',e); }
+  agent.installed = await agentDetectInstalled();
   agent.installedChecked=true; renderAgentLocal();
 }
-function agentOnProgress(p){ agent.progress=(p&&p.text)?p.text:(p&&p.progress!=null?Math.round(p.progress*100)+'%':''); renderAgentLocal(); syncAgentPill(); }
-async function agentInstall(id){
-  if(agent.busyId) return; const m=AGENT_MODELS.find(x=>x.id===id); if(!m) return;
-  const evicted=agent.activeId; agent.busyId=id; agent.op='install'; agent.error=''; agent.progress=''; agent.activeId=null; renderAgentLocal(); syncAgentPill();
-  try { const eng=await agentEnsureEngine(); eng.setInitProgressCallback(agentOnProgress); await eng.reload(id); await eng.unload(); agent.installed.add(id); if(evicted&&evicted!==id) toast('Deactivated '+agentLabelFor(evicted)+' to download '+m.label); }
-  catch(e){ agent.error=agentErr(e); console.error('[WebLLM] install failed',e); }
+// Show only a clean percentage — WebLLM's p.text is verbose ("…can take a while…").
+function agentOnProgress(p){ agent.progress=(p&&p.progress!=null)?Math.round(p.progress*100)+'%':''; renderAgentLocal(); syncAgentPill(); }
+// Set which model is on disk (the cache). '' = None. Enforces one-at-a-time:
+// unloads VRAM, purges every other cached model, then downloads the chosen one.
+async function agentSetDisk(id){
+  if(agent.busyId) return;
+  agent.busyId=id||'none'; agent.op='disk'; agent.error=''; agent.progress=''; renderAgentLocal(); syncAgentPill();
+  try {
+    if(agent.activeId){ try{ if(agent.engine) await agent.engine.unload(); }catch(e){} agent.activeId=null; }
+    await agentPurgeCache(id);                       // free disk of every other model (and all, if id='')
+    if(id){ const eng=await agentEnsureEngine(); eng.setInitProgressCallback(agentOnProgress); await eng.reload(id); await eng.unload(); }
+    agent.installed = await agentDetectInstalled();  // sync to what's actually on disk now
+  } catch(e){ agent.error=agentErr(e); console.error('[WebLLM] set-disk failed',e); }
+  agent.busyId=null; agent.op=''; agent.progress=''; renderAgentLocal(); renderAgentTab(); renderStorage(); syncAgentPill();
+}
+// Load/unload the on-disk model into VRAM (the toggle). Loading is fast when the
+// model is already cached on disk.
+async function agentToggleVram(on){
+  if(agent.busyId) return;
+  const id=[...agent.installed][0]; if(on && !id) return;
+  agent.busyId=id||'vram'; agent.op=on?'activate':'deactivate'; agent.error=''; agent.progress=''; renderAgentLocal(); syncAgentPill();
+  try {
+    const eng=await agentEnsureEngine();
+    if(on){ eng.setInitProgressCallback(agentOnProgress); await eng.reload(id, { context_window_size: AGENT_CTX_WINDOW }); agent.activeId=id; }
+    else { try{ await eng.unload(); }catch(e){} agent.activeId=null; }
+  } catch(e){ agent.error=agentErr(e); console.error('[WebLLM] vram-toggle failed',e); }
   agent.busyId=null; agent.op=''; agent.progress=''; renderAgentLocal(); renderAgentTab(); syncAgentPill();
-}
-async function agentRemove(id){
-  if(agent.busyId) return; agent.busyId=id; agent.op='remove'; agent.error=''; renderAgentLocal(); syncAgentPill();
-  try { if(agent.activeId===id&&agent.engine){ try{await agent.engine.unload();}catch(e){} agent.activeId=null; } await agentEnsureModule(); await agent.llm.deleteModelAllInfoInCache(id); agent.installed.delete(id); }
-  catch(e){ agent.error=agentErr(e); console.error('[WebLLM] remove failed',e); }
-  agent.busyId=null; agent.op=''; renderAgentLocal(); renderAgentTab(); syncAgentPill();
-}
-async function agentActivate(id){
-  if(agent.busyId) return; const m=AGENT_MODELS.find(x=>x.id===id); if(!m) return;
-  agent.busyId=id; agent.op='activate'; agent.error=''; agent.progress=''; renderAgentLocal(); syncAgentPill();
-  try { const eng=await agentEnsureEngine(); eng.setInitProgressCallback(agentOnProgress); await eng.reload(id, { context_window_size: AGENT_CTX_WINDOW }); agent.activeId=id; agent.installed.add(id); }
-  catch(e){ agent.error=agentErr(e); console.error('[WebLLM] activate failed',e); }
-  agent.busyId=null; agent.op=''; agent.progress=''; renderAgentLocal(); renderAgentTab(); syncAgentPill();
-}
-async function agentDeactivate(){
-  if(agent.busyId||!agent.activeId) return; agent.busyId=agent.activeId; agent.op='deactivate'; renderAgentLocal(); syncAgentPill();
-  try { if(agent.engine) await agent.engine.unload(); } catch(e){ console.error('[WebLLM] unload failed',e); }
-  agent.activeId=null; agent.busyId=null; agent.op=''; renderAgentLocal(); renderAgentTab(); syncAgentPill();
 }
 function syncAgentPill(){
-  if (agent.generating||agent.busyId) setAgent('loading','Agent: '+({install:'downloading',activate:'loading',remove:'removing',deactivate:'unloading'}[agent.op]||'thinking'));
+  if (agent.generating||agent.busyId) setAgent('loading','Agent: '+({disk:'downloading',activate:'loading',deactivate:'unloading'}[agent.op]||'thinking'));
   else if (agent.activeId) setAgent('ready','Agent: '+agentLabelFor(agent.activeId));
   else if (agent.error) setAgent('error','Agent: error');
   else setAgent('idle','Agent: idle');
 }
 
-// Settings → Agent: GPU status + model install/activate/remove.
+// Settings → Agent: GPU status + on-disk model (dropdown) + VRAM toggle.
 function renderAgentGPU(){
   const el=$('#agent-gpu'); if(!el) return; const g=agent.gpu;
   if(!g){ el.innerHTML='<span style="color:var(--text-tertiary)">Checking GPU…</span>'; return; }
   if(g.supported){
-    const dev=[g.vendor,g.architecture,g.description].filter(Boolean).join(' ')||'GPU detected';
-    const mb=g.maxBufferSize?(' · max buffer '+(g.maxBufferSize/1048576).toFixed(0)+' MB'):'';
-    el.innerHTML='<span style="color:var(--fn-success);font-weight:600">● WebGPU available</span><div style="color:var(--text-tertiary);font-size:11px;margin-top:3px">'+escapeHtml(dev)+escapeHtml(mb)+'</div>';
+    const mb=g.maxBufferSize?('max buffer '+(g.maxBufferSize/1048576).toFixed(0)+' MB'):'GPU detected';
+    el.innerHTML='<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">'+
+      '<span style="color:var(--fn-success);font-weight:600;flex-shrink:0">● WebGPU available</span>'+
+      '<span style="color:var(--text-tertiary);font-size:11px;text-align:right">'+escapeHtml(mb)+'</span></div>';
   } else {
     el.innerHTML='<span style="color:var(--text-secondary);font-weight:600">○ WebGPU unavailable</span><div style="color:var(--text-tertiary);font-size:11px;margin-top:3px">'+escapeHtml(g.reason||'')+'</div><div style="color:var(--text-tertiary);font-size:11px;margin-top:3px">In-browser models are disabled.</div>';
   }
@@ -1922,26 +1963,36 @@ function renderAgentLocal(){
   const el=$('#agent-local'); if(!el) return;
   if(agent.gpu===null){ el.innerHTML='<div class="pane-note">Checking GPU…</div>'; return; }
   if(!(agent.gpu&&agent.gpu.supported)){ el.innerHTML='<div class="pane-note">Local models require WebGPU, which isn’t available here.</div>'; return; }
-  const anyBusy=!!agent.busyId; const OP={install:'Downloading… ',activate:'Loading… ',remove:'Removing… ',deactivate:'Unloading… '};
-  el.innerHTML = (agent.error?('<div style="font-size:11px;color:var(--fn-danger);margin:4px 0;word-break:break-word">'+escapeHtml(agent.error)+'</div>'):'');
+  const onDisk=[...agent.installed][0]||'';   // at most one model on disk
+  const active=!!agent.activeId, busy=!!agent.busyId;
+  el.innerHTML='';
+  if(agent.error) el.appendChild(elem('div',{style:'font-size:11px;color:var(--fn-danger);margin:0 0 8px;word-break:break-word',text:agent.error}));
+
+  // "Local Agent" label, then the model dropdown + its VRAM toggle on one row.
+  // Models that can't run on this GPU are shown but disabled — no downloading a
+  // model you can't use. (Pairs with a future "Remote Agent" block.)
+  el.appendChild(elem('div',{class:'agent-field-label',style:'margin-bottom:7px',text:'Local Agent'}));
+  const sel=elem('select',{class:'agent-select'}); sel.disabled=busy;
+  sel.appendChild(elem('option',{value:'',text:'None'}));
   AGENT_MODELS.forEach(m=>{
-    const installed=agent.installed.has(m.id), active=agent.activeId===m.id, busy=agent.busyId===m.id, fits=agentModelFits(m);
-    let sub, col='var(--text-tertiary)';
-    if(busy) sub=(OP[agent.op]||'Working… ')+escapeHtml(agent.progress||'');
-    else if(!fits){ sub='Too large for this GPU'; col='var(--fn-danger)'; }
-    else if(active){ sub='Active in VRAM'; col='var(--fn-success)'; }
-    else if(!agent.installedChecked) sub='~'+(m.vramMB/1024).toFixed(1)+' GB';
-    else if(installed) sub='Installed · not loaded';
-    else sub='Not installed · downloads ~'+(m.vramMB/1024).toFixed(1)+' GB';
-    const row=elem('div',{class:'kv-row'});
-    row.innerHTML =
-      '<div class="kv-top"><span class="kv-name">'+(active?'<span style="color:var(--fn-success)">●</span> ':'')+escapeHtml(m.label)+'</span><span class="var-type">'+escapeHtml(m.tier)+'</span></div>'+
-      '<div class="kv-desc" style="color:'+col+'">'+sub+'</div>';
-    const btns=elem('div',{style:'display:flex;gap:5px;margin-top:5px'});
-    const disk=elem('button',{class:'kv-btn',text:installed?'Remove':'Install'}); disk.disabled=anyBusy||(!installed&&!fits); disk.onclick=()=> installed?agentRemove(m.id):agentInstall(m.id);
-    const vram=elem('button',{class:'kv-btn',text:active?'Deactivate':'Activate'}); vram.disabled=anyBusy||(!active&&!fits); vram.onclick=()=> active?agentDeactivate():agentActivate(m.id);
-    btns.appendChild(disk); btns.appendChild(vram); row.appendChild(btns); el.appendChild(row);
+    const fits=agentModelFits(m);
+    const o=elem('option',{value:m.id,text:m.family+' ('+m.tier+' · '+(m.diskMB/1000).toFixed(1)+' GB'+(fits?'':' · too large')+')'});
+    if(!fits && m.id!==onDisk) o.disabled=true;   // keep the current on-disk model selectable regardless
+    sel.appendChild(o);
   });
+  sel.value=onDisk;
+  sel.onchange=()=>agentSetDisk(sel.value);
+  const cb=elem('input',{type:'checkbox',class:'switch',title:'Active in VRAM'}); cb.checked=active; cb.disabled=busy||!onDisk;
+  cb.onchange=()=>agentToggleVram(cb.checked);
+  el.appendChild(elem('div',{class:'agent-row'},[ sel, cb ]));
+
+  // Status line — also names the toggle's job for discoverability.
+  let status, col='var(--text-tertiary)';
+  if(busy){ const OP={disk:'Downloading… ',activate:'Loading… ',deactivate:'Unloading… '}; status=(OP[agent.op]||'Working… ')+(agent.progress||''); }
+  else if(active){ status='Active in VRAM — ready to chat'; col='var(--fn-success)'; }
+  else if(onDisk) status='On disk · toggle to load into VRAM';
+  else status='No model selected';
+  el.appendChild(elem('div',{class:'kv-desc',style:'margin-top:8px;color:'+col,text:status}));
   syncAgentPill();
 }
 
@@ -2045,6 +2096,7 @@ async function initAgent(){
   renderAgentTab();
   agent.gpu = await detectWebGPU();
   renderAgentGPU(); renderAgentLocal();
+  if(agent.gpu && agent.gpu.supported) agentRefreshInstalled();   // detect on-disk model from cache, then re-render
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
