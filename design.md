@@ -78,11 +78,11 @@ Mirrors the numbered banner sections in `index.html` (JS sections 0–10).
 | 1 | Doc model | `main.lua` ↔ cells; the round-trip invariant | `parse`, `serialize`, `normalizeGlue`, `cellBody` |
 | 2 | Markdown | marked.js when present, compact built-in fallback | `renderMarkdownHTML` |
 | 3 | State + persistence | IndexedDB project data (loaded to memory at boot) + localStorage prefs + Cache API downloads + encrypted secrets | `loadAll`, `idb*`, `idbGet/idbPut`, `loadSecrets`, `LS` |
-| 4 | Theme | 6 themes via CSS variables; brand pink/steel | `getTheme`, `applyTheme` |
+| 4 | Theme | Paper×Ink engine (`loveide-theme.js`) — two continuous OKLCH axes (Paper: light↔dark neutrals; Ink: steel↔pink syntax tint), 6 named Paper zones; brand pink/steel fixed accents outside the engine | `buildTheme`, `applyTheme`, `window.LoveIDETheme` |
 | 5 | CodeMirror | Lua editor on demand; textarea fallback | `loadCM` |
 | 6 | Cell DOM | Render/edit/reorder cells; markdown WYSIWYG | cell render + drag-to-reorder |
 | 6b | Activity panels | Outline, Libraries (require()-driven, add-by-URL) | panel renderers |
-| 6c | Agent | Local WebLLM (in-browser model manager + streaming chat) and remote API agents (Anthropic/OpenAI/xAI), unified by a group-chat router; real Sight | `detectWebGPU`, `initAgent`, `AGENT_PROVIDERS`, `agentSend`, `remoteChat`, `buildContext` |
+| 6c | Agent | Local WebLLM (in-browser model manager + streaming chat + VRAM budget tool) and remote API agents (Anthropic/OpenAI/xAI), unified by a single-active-agent router (`from`-tagged messages read like group chat, but exactly one of local/remote responds at a time — see Agent rows below); real Sight | `detectWebGPU`, `initAgent`, `AGENT_PROVIDERS`, `agentSend`, `agentCancel`, `remoteChat`, `buildContext`, `measureVram`, `agentPickContextWindow` |
 | 7 | Runtime | Build `.love`, boot via 2dengine/love.js | `RT`, `playerHTML`, `run`, `buildLoveBlob` |
 | 8 | Export | `.love` download | `exportLove` |
 | 9 | Self-tests | Doc-model invariants run on demand (Tests button) | `runSelfTests` |
@@ -173,8 +173,8 @@ Coarse, per-subsystem. Status is the highest claim rung currently justified.
 | Markdown | **B** | marked.js + built-in fallback. |
 | State / persistence | **D** | **Storage tiers by data nature:** IndexedDB = all project data (doc · snapshots · libs · conf · assets · secrets), loaded to memory at boot via `loadAll`, sync reads / async writes; localStorage = tiny prefs only (theme · opts · tab); Cache API = regenerable downloads. kv + AES-GCM secrets round-trip dependency-verified (fake-indexeddb + WebCrypto); end-to-end in-browser still owed. No migration (no data worth keeping). |
 | Assets / IndexedDB | **D** | Blobs in IDB (not base64). **Divergence considered:** OPFS rejected — no user-visible files, Chromium-leaning; IDB is enough and portable. |
-| Secrets / encrypted | **D** | AES-GCM under a non-extractable device key (key + ciphertext in IDB); ported from the oracle. Storage + minimal API built; **no UI yet**. Verified headless: key non-extractable, ciphertext carries no plaintext. |
-| Theme | **B** | 6 themes; brand pink `#EC4899` / steel `#7C8A99`. Heart-`</>` mark shelved. |
+| Secrets / encrypted | **D** | AES-GCM under a non-extractable device key (key + ciphertext in IDB); ported from the oracle. Storage + API verified headless: key non-extractable, ciphertext carries no plaintext. **UI shipped**: per-agent key fields in Settings → Agentic Coding (`agent:<providerId>:<fieldKey>` naming), not a generic named-key manager — see Agent rows below. |
+| Theme | **B** | Paper×Ink engine — parametric OKLCH, not discrete named themes (superseded the earlier "6 themes" model; `loveide-theme.js`, continuous Paper/Ink sliders, 6 named Paper zones, hue-named functional/syntax colors). Brand pink `#EC4899` / steel `#7C8A99` fixed accents, plus a morphing Run/Stop action button, sit outside the engine by design. Heart-`</>` mark shelved. |
 | CodeMirror editor | **B** (load **browser-only**) | Lua via legacy mode; textarea fallback if CDN blocked. Fixed a real regression this session: `renderNotebook()` destroys every CM view on structural edits (add/delete/convert cell) but nothing re-attached them — silently dropping the whole notebook to plain textareas until a reload. `renderNotebook()` now re-upgrades at the end of its own render (`upgradeAllEditors()` is cached/cheap past first load), so the explicit boot-time call was redundant and removed. |
 | Cell UI / reorder | **B** | Ported drag-to-reorder from the oracle. |
 | Static analysis | **D** | luaparse AST → symbols + records-as-grid; validated in node against real luaparse. **Divergence:** oracle's Variables/Tables are *runtime*; ours are *static source*. Same UI intent, different data source. |
