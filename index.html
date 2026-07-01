@@ -2506,7 +2506,12 @@ function renderAgentLocal(){
       track.appendChild(bg); track.appendChild(fill); track.appendChild(slider);
 
       const label=elem('span',{class:'kv-desc',style:'min-width:92px;text-align:right',text:startMB+' MB'});
-      const setBtn=elem('button',{class:'kv-btn commit'});   // .commit reuses the existing blue-on-hover pairing (Commit/Remove) rather than inventing a new hover color
+      // Fixed width sized for its longer "✓ Saved" state — .vram-track is
+      // flex:1, so if this button's own width changed between "Set" and
+      // "✓ Saved" it would steal/give back space from the slider on every
+      // toggle, visibly resizing the whole track each time the knob moves off
+      // (or back onto) the saved value.
+      const setBtn=elem('button',{class:'kv-btn commit',style:'min-width:72px;justify-content:center'});
       // Fill width is a CSS calc(), not a JS-measured pixel snapshot: the
       // knob's own travel is inset 8px each side (half its 16px width), so a
       // plain width:X% (relative to the track's full box) overshoots the
