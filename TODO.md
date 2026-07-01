@@ -1,197 +1,107 @@
 # LoveIDE — TODO
 
-Working notes for `index.html` (the app is one file). Led by the agent plan,
-followed by the rest of the backlog and open questions.
+Working notes for `index.html` (the app is one file). Led by the agent plan, followed by the rest of the backlog. Both tables below are ranked the same way — see the legend before either one.
+
+---
+
+## Ranking legend
+
+Every row in both tables carries two independent ratings.
+
+**Urgency** — how much other planned work is waiting on this landing:
+- **High** — one or more concrete next steps can't start, or can't be done safely, until this lands.
+- **Medium** — later work benefits or is loosely coupled, but nothing is strictly blocked.
+- **Low** — nothing currently planned depends on this; a standalone improvement.
+
+**Risk** — how much already-shipped, working behavior this touches if it goes wrong or drifts:
+- **High** — touches a subsystem several other shipped features already depend on (the doc model, History, Storage tiers), or can silently corrupt user data.
+- **Medium** — touches a load-bearing subsystem, but additively (new call sites) rather than modifying existing behavior.
+- **Low** — isolated or additive; a bug here doesn't ripple into other shipped features.
+
+**Sort:** Urgency first, Risk second (within equal urgency, the riskier item is sequenced sooner — deferring it just lets more shipped code accumulate on top of the unstable part). Hard technical prerequisites (X literally cannot be built before Y exists) override the score when the two disagree; noted inline where that happens.
+
+Each row also splits **problem** (why it matters — durable) from **solution ideas** (how we might do it — a sketch, not a commitment; a good place to park ideas we're not ready to build).
 
 ---
 
 ## Agent plan
 
 ### The model
-The agent is a **collaborator, not a chatbot**. It runs a selectable **Mode**
-(a protocol), has **Sight** (reads the project), optional **Hands** (acts on
-cells / conf / assets via tools), on a **Backend** (local WebLLM and/or a remote
-API), and communicates through **Scaffolding** the app enforces. One system
-message — rebuilt each turn from live state — is where Sight lives; tools are the
-Hands channel; a Mode is data (system prompt + sight/hands level + backend
-preference), eventually user-authored.
+The agent is a **collaborator, not a chatbot**. It runs a selectable **Mode** (a protocol), has **Sight** (reads the project), optional **Hands** (acts on cells / conf / assets via tools), on a **Backend** (local WebLLM and/or a remote API), and communicates through **Scaffolding** the app enforces. One system message — rebuilt each turn from live state — is where Sight lives; tools are the Hands channel; a Mode is data (system prompt + sight/hands level + backend preference), eventually user-authored.
 
 Three driving ideas (from the oracle, kept):
-1. **Local + remote collaboration.** Local (WebLLM) is free/fast/private but
-   weak; remote is frontier-quality. Use local as a cheap scout and remote as
-   the closer. Variant: local attempts a step behind a checkpoint; on failure the
-   app reverts and escalates to remote with the failed attempt + error.
-2. **Modes.** A named protocol = system prompt + config. Assistant (casual),
-   Tutor (one runnable step at a time — and in LoveIDE each step is a real cell
-   that shows on the game canvas), Rigor (the scaffolding discipline). Rigid
-   modes need a capable model (remote); a local 1.5B can't hold them.
-3. **Scaffolding that reduces miscommunication.** The agent presents a frontier
-   of options the human picks from (never railroads); every claim carries a
-   grade and may not sit above its evidence; deviations are surfaced. Claims are
-   graded by **witnessed actions** — enforced by the substrate, not trusted to
-   the prompt.
+1. **Local + remote collaboration.** Local (WebLLM) is free/fast/private but weak; remote is frontier-quality. Use local as a cheap scout and remote as the closer. Variant: local attempts a step behind a checkpoint; on failure the app reverts and escalates to remote with the failed attempt + error.
+2. **Modes.** A named protocol = system prompt + config. Assistant (casual), Tutor (one runnable step at a time — and in LoveIDE each step is a real cell that shows on the game canvas), Rigor (the scaffolding discipline). Rigid modes need a capable model (remote); a local 1.5B can't hold them.
+3. **Scaffolding that reduces miscommunication.** The agent presents a frontier of options the human picks from (never railroads); every claim carries a grade and may not sit above its evidence; deviations are surfaced. Claims are graded by **witnessed actions** — enforced by the substrate, not trusted to the prompt.
 
 ### How LoveIDE differs from the oracle (important)
-The oracle's plan is built around a **DuckDB runtime substrate** shared with a
-**reactivity** branch. LoveIDE has neither, which *simplifies* the foundation:
+The oracle's plan is built around a **DuckDB runtime substrate** shared with a **reactivity** branch. LoveIDE has neither, which *simplifies* the foundation:
 
-- **`main.lua` is already the single source of truth.** There is no separate DB
-  state to serialize — **Sight = serialization of the doc model + the static
-  analysis we already compute (Variables/Tables via luaparse) + the love.js
-  Console**. No `_ql_*`, no DuckDB.
-- **No reactivity branch.** `main.lua` is one program, not a reactive cell graph,
-  so the "build the substrate once, two branches unblock" argument doesn't apply.
-  The oracle's heavy Step 1 mostly collapses for us.
-- **Sight is static + Console.** Our Variables/Tables are *static* (parsed
-  source), not runtime values. The agent sees the code + Console (print/errors)
-  but not live game state (e.g. `player.x` at frame 600) unless we add a runtime
-  **debug bridge** into the running love instance — optional (see open questions).
-- **Witnessing is coarser but already wired.** The witnessed signal is "the
-  `.love` booted and ran without a Lua error," captured via the iframe→Console
-  bridge — vs the oracle's typed query/var results. Coarser, but it's exactly
-  what makes local-try → revert → escalate natural.
-- **Checkpoint/revert is nearly free.** A snapshot is `serialize(nb.doc)` (+ conf);
-  the History snapshot/restore machinery already exists. No `exportDBBytes` analog.
+- **`main.lua` is already the single source of truth.** There is no separate DB state to serialize — **Sight = serialization of the doc model + the static analysis we already compute (Variables/Tables via luaparse) + the love.js Console**. No `_ql_*`, no DuckDB.
+- **No reactivity branch.** `main.lua` is one program, not a reactive cell graph, so the "build the substrate once, two branches unblock" argument doesn't apply.
+- **Sight is static + Console.** Our Variables/Tables are *static* (parsed source), not runtime values. The agent sees the code + Console (print/errors) but not live game state (e.g. `player.x` at frame 600) unless we add a runtime **debug bridge** into the running love instance (Backlog).
+- **Witnessing exists but is incomplete.** The witnessed signal is meant to be "the `.love` booted and ran without a Lua error," via the iframe→Console bridge. Verified this only half-holds: pre-boot failures do flip the app's runtime state, but a Lua error *after* the game is already running only reaches the Console text — the runtime state still reads "running." See the witnessing-gap row in the Backlog.
+- **Checkpoint/revert is nearly free.** A snapshot is `serialize(nb.doc)` (+ conf); the History snapshot/restore machinery already exists (and already dedupes + caps itself — see the Backlog).
 
 ### Already built
+Verified against the code, not just stated:
 - WebGPU capability probe (`detectWebGPU`, `agent.gpu`).
-- Settings → Agent config home.
-- Local-model manager — the three oracle models (Qwen2.5-Coder 1.5B / 3B / 7B)
-  with a disk axis (Install / Remove) and VRAM axis (Activate / Deactivate, one
-  active at a time), VRAM-fit gray-out, lazy WebLLM import, live progress.
-- Streaming chat in the Agent tab over the active model; `main.lua` sent as a
-  crude Sight v0; "Insert as cell" for ```lua blocks.
+- Settings → Agent config home; local-model manager for the three oracle models (Qwen2.5-Coder 1.5B / 3B / 7B) — disk axis (Install / Remove), VRAM axis (Activate / Deactivate, one active at a time), VRAM-fit gray-out, lazy WebLLM import, live progress, per-model cache eviction.
 - Agent status pill (idle / loading / ready / error).
+- Streaming chat in the Agent tab; **"Insert as cell"** for ` ```lua ` blocks.
+- **Real Sight, not a stub.** `buildContext()` assembles a system message each turn from the full current `main.lua` + `conf.lua` summary + recent Console output, with a token budget (`AGENT_SIGHT_BUDGET`), a structural-digest fallback (`luaDigest`) for oversized sources, and bounded chat history (`AGENT_HISTORY_MAX`). This is the curated-brief seam from the original plan, already shipped.
+- Console is a real, independently-toggleable RHS panel (not the old fixed strip) — the RHS/Console seam from the original plan is also done. Full write-up in `design.md`.
 
-The chat is otherwise **blind** — no real Sight, no Hands.
+The chat still has **no Hands** — everything in the table below is what's left.
 
 ### Shippable milestones
-- After **Step 3** (project-aware chat on a frontier remote model) — the 80/20.
-- After **Step 7** (full Hands + scaffolding).
+- After **Backend interface + Remote** — project-aware chat on a frontier remote model. The 80/20.
+- After **Write/run tools + scaffolding UI** — full Hands + scaffolding.
 
-### Steps (LoveIDE-adapted)
+### Steps, ranked
 
-| # | Phase | Item | LoveIDE notes |
-|---|-------|------|---------------|
-| 1 | Foundation | Console as a real RHS tab + `buildContext()` seam | No DuckDB substrate. Promote the Console strip to a proper RHS tab (Preview · Variables · Tables · **Console**); define the single read path Sight + panels share. |
-| 2 | Sight | `buildContext()` (the curated brief) | Assemble system message each turn from `main.lua` (serialized) + symbols/tables (luaparse) + recent Console output + conf; per-backend token budget. Makes chat project-aware. Safe on any model. |
-| 3 | Backends | Backend interface + Remote | `backend.chat(messages, {tools, stream})`; add a remote provider (key via Secrets; Anthropic direct-browser header / OpenRouter — mind CORS). Unlocks frontier reasoning → prerequisite for reliable modes/hands. **80/20 milestone.** |
-| 4 | Modes | Mode configs + selector | Assistant / Tutor / Rigor as data (prompt + sight/hands level + backend pref); selector in Settings → Agent; each declares a recommended backend. |
-| 5 | Hands | Read-only tools + tool loop | `get_cell`, `list_cells`, `get_symbols`, `get_tables`, `get_console`, `get_conf`, `list_assets/libs`; call → execute → feed-back loop; app witnesses results. Zero mutation risk. Reliable only on capable (remote) models. |
-| 6 | Hands | Checkpoint / revert | Snapshot `serialize(nb.doc)` (+ conf) before any agent action; one-click restore (reuse History/Stop machinery). Nearly free; basis for local-try-then-escalate. |
-| 7 | Hands | Write/run tools + scaffolding UI | Mutating tools (`add_cell`, `edit_cell`, `delete_cell`, `toggle_cell`, `set_conf`, `run`); options rendered as clickable next-steps (human picks one small step); claim badges from witnessed runs (booted green vs Lua error); deviation/activity record in the Console tab. Full Tutor/Rigor experience. |
-| 8 | Collaboration | Local-try → revert → remote-escalate | Local edits a cell behind a checkpoint; on Lua error in the Console, revert + escalate to remote with the failed attempt + error. |
-| 9 | Collaboration | Scout/solver orchestration | Local gathers/distills context cheaply; remote solves with the curated brief. Cuts remote token cost. |
-| 10 | On top | User-authored modes | Modes are data, so teachers/users write their own (classroom feature) — text + config, no engine change. |
+Row order is the recommended build order (see the legend for how it's derived).
+
+| Urgency | Risk | Phase | Item | Problem it solves | Solution ideas |
+|---|---|---|---|---|---|
+| High | Medium | Backends | Backend interface + Remote | Local WebLLM (1.5B–7B) is free/private but too weak to carry Sight-driven reasoning or scaffolding discipline. Everything below this row needs a genuinely capable model to even be testable — the wall we hit this session. | `backend.chat(messages, {tools, stream})` interface; remote provider (Anthropic direct-browser header, or an OpenAI-compatible proxy — mind CORS); key stored via the Secrets layer (Backlog — built, no UI yet). The 80/20 milestone. |
+| High | Medium | Hands | Checkpoint / revert | Once the agent can write to the doc (Write/run tools, below), a bad edit needs a one-click way back — that safety net should exist *before* mutating tools ship. Has no hard dependency on the backend or on read-only tools existing first; it's a new trigger on machinery (History) that already ships to humans today. | Snapshot `serialize(nb.doc)` (+ conf) before any agent-initiated action; reuse the existing History list and restore path — already deduped and capped (Backlog). |
+| High | Low | Hands | Read-only tools + tool loop | The agent currently sees only whatever `buildContext()` handed it once per turn; it can't ask a follow-up ("show me cell 4," "what's in this table") without the human re-pasting it. | `get_cell`, `list_cells`, `get_symbols`, `get_tables`, `get_console`, `get_conf`, `list_assets/libs`; call → execute → feed back into the conversation. Zero mutation risk by construction; reliable only on a capable (remote) model. |
+| Medium | Low | Modes | Mode configs + selector | Right now there's exactly one agent behavior (casual chat). Assistant/Tutor/Rigor need distinct system prompts and Sight/Hands levels — and Write/run tools' scaffolding (below) will want to know which mode it's under, so building Modes after Hands risks reshaping a prompt structure Hands already plugged into. | Modes as data (prompt + sight/hands level + backend preference); selector in Settings → Agent; each mode declares a recommended backend. |
+| High | High | Hands | Write/run tools + scaffolding UI | The actual "Hands" promise: add/edit/delete/toggle cells, set conf, trigger Run. Also the single highest-risk row here — the first tool with a code path that can mutate `main.lua`, the app's single source of truth. | Mutating tools (`add_cell`, `edit_cell`, `delete_cell`, `toggle_cell`, `set_conf`, `run`); options rendered as clickable next-steps (human picks one, never railroaded); claim badges from witnessed runs (needs the witnessing-gap fix — Backlog); deviation/activity record in the Console tab. |
+| Medium | Medium | Collaboration | Local-try → revert → remote-escalate | Once local models can attempt edits behind a checkpoint, always escalating to remote still costs a call per attempt. This is what makes a local model useful for more than chat — an optimization on top of checkpoint/revert, read-only tools, and write tools (above), not a prerequisite for anything. | Local edits a cell behind a checkpoint; on a Lua error in Console, revert and escalate to remote with the failed attempt + error attached. |
+| Low | Low | Collaboration | Scout/solver orchestration | Remote token cost adds up if the remote model does all its own context-gathering every turn. Pure efficiency refinement; nothing is blocked without it. | Local model gathers/distills context cheaply; remote solves with the curated brief. |
+| Low | Low | On top | User-authored modes | Teachers/users may want their own Mode (a classroom variant) without engine changes. Lowest urgency in the plan. | Modes are already just data (Mode configs + selector, above), so this is "expose the same config shape to users" — text + config, no new engine mechanics. |
 
 ### Open questions
-1. **Runtime Sight:** static source + Console only, or invest in a live **debug
-   bridge** into the running game (read `_G`/watches each frame)?
-2. **Witnessing richness:** is "boots vs errors" enough to grade claims, or do we
-   want richer signals (canvas screenshot diff, FPS, agent-written assertions)?
-3. **Secrets/remote:** resolve the BYO-key decision (provider = Anthropic +
-   OpenAI-compatible?; storage = localStorage + "don't save" + sanitized model
-   output, vs passphrase-encrypted). Required for Step 3.
-4. **Token/context management — revisit the strategy.** `buildContext()` landed
-   (full current `main.lua` + conf + recent Console each turn, bounded history,
-   `context_window_size` raised to 8192) — an improvement, but we can likely do
-   better: token-accurate counting (not the `chars/4` heuristic); smarter
-   relevance when a file is large (focused / referenced cells vs whole source);
-   summarizing old turns instead of hard-dropping them; per-backend budgets; and
-   confirming the window override actually takes effect and is sized to real VRAM
-   (the browser can't read free VRAM, so this is currently a manual dial).
+1. **Runtime Sight:** static source + Console only, or invest in a live **debug bridge** into the running game (read `_G`/watches each frame)? See the matching Backlog row.
+2. **Witnessing richness:** beyond fixing the boots-vs-errors gap (Backlog), is that signal enough to grade claims long-term, or do we want richer ones (canvas screenshot diff, FPS, agent-written assertions)?
+3. **Secrets/remote:** resolve the BYO-key decision (provider = Anthropic + OpenAI-compatible?; storage = the existing encrypted-at-rest layer, which is already device-bound — is that sufficient, or do we also want a session-only "don't save" mode?). The Secrets UI row (Backlog) needs this answered before it's built.
+4. **Token/context management** — real gaps beyond what's already built: token-accurate counting (not the `chars/4` heuristic); smarter relevance when a file is large (focused/referenced cells vs. whole source); summarizing old turns instead of hard-dropping them; per-backend budgets; confirming the `context_window_size` override is actually sized to real VRAM (the browser can't read free VRAM, so this is currently a manual dial).
 
 ---
 
-## Backlog (non-agent)
+## Backlog, ranked
 
-- **Console rework** (also Step 1 above): currently a fixed 150px strip under the
-  canvas whose only control is one unlabeled terminal toggle-icon in the Preview
-  pane-header. Candidates to consider (none blocking; deferred out of the theming
-  PR): (a) hide doesn't stick — the next Run auto-reopens it; (b) no manual **Clear**;
-  (c) no **Copy** (wanted once the agent/you paste an error); (d) no header/label or
-  visual identity on the strip; (e) fixed height, not **resizable** (cf. the chat
-  input); (f) the lone control is an easy-to-miss header icon. Possibly promote to a
-  dedicated RHS tab. Log lines are already colour-coded (ok/warn/err green/amber/red).
-- **File System Access API** — open/save against a *real* project folder so files
-  land where desktop LÖVE can run them (no export step). Chromium-only;
-  progressive enhancement with download-export as the fallback. (Distinct from
-  OPFS, which gives no user-visible files.)
-- **Runtime debug bridge / live inspector** — inject a small module into the
-  `.love` to surface live values / a Lua REPL in the Console (the runtime
-  counterpart to the static Variables/Tables).
-- **Hot-reload on edit** — debounced auto-Run after edits.
-- **love.js boot** — confirm end-to-end across browsers when served
-  cross-origin-isolated; the runtime can't be exercised in the dev sandbox (CDN
-  egress blocked there).
-- **Export polish** — fused web build option; asset drag-and-drop into the .love.
-- **Storage management — fix the "maximum" + measure more, manage more.** The panel
-  shows `used / quota`, but the quota is misleading: when `navigator.storage.estimate()`
-  is unavailable it falls back to a **5 MB** localStorage-era guess (so IndexedDB
-  assets sail "over maximum"), and even the real `estimate().quota` is a *soft,
-  browser-granted* figure, not a hard cap — label it as such and never present it
-  as a fixed limit. Bigger gap: `used` (real origin usage) includes large consumers
-  the per-row breakdown never measures — above all the **WebLLM model weights cached
-  in the Cache API (multi-GB)** plus the love.js WASM / CDN caches — so `used` vastly
-  exceeds the summed rows, which is confusing. Wanted:
-  - **More measured categories/rows:** an **Agents / models** row (cached model
-    weights, per model, with evict), a **Packages / libraries** row, and a
-    **cost-of-use** measure — VRAM of the active model now; token / \$ cost once
-    remote backends land (Step 3).
-  - **More management actions:** evict individual model caches, clear the love.js /
-    CDN / service-worker cache, prune old snapshots (ties to the History autosave
-    redesign), and a near-quota warning.
-  - **Honest accounting:** reconcile the category breakdown with real origin usage
-    so the rows sum to (or visibly explain the gap with) the reported total.
-
-### Adapted from the oracle's backlog (unaudited — pending review)
-- **Automated integration tests** — a Playwright suite driving the real
-  `index.html` end-to-end through the headline flows (load, edit, toggle, Run,
-  Export). Dev-side only; the shipped app stays single-file. Directly targets the
-  claims currently parked at *browser-only* (love.js boot, CDN library loads,
-  WebLLM) — the path to verifying them above "stated." Headless doc-model
-  self-tests already exist (§9); this is the missing end-to-end layer.
-- **Demo / tutorial collection** — a few example LÖVE projects (bouncing ball,
-  tiny platformer) shipped with the app to show capabilities and common patterns.
-  Pairs with the agent's Tutor mode, where each step is a real cell on the canvas.
-- **Snapshot triggers & caps — revisit** — the model is now settled in shape but
-  crude in policy. Two mechanisms, kept named apart: (1) the **working buffer** —
-  one slot (`doc/current`), overwritten on every edit + on unload, silent, crash
-  recovery only, no UI; (2) **snapshots** — the discrete History list, created on
-  Run / New / Open / Restore / manual. Current stopgap: **Run always snapshots**
-  (even if nothing changed → duplicate entries) and there is **no cap** (History
-  grows unbounded). Revisit: gate Run on dirty-since-last-snapshot, add a trim cap
-  (oracle-style), and consider a `trigger` field on the history schema so a
-  keyed-slot upsert (time-based saves overwrite, manual/event saves accumulate) is
-  possible if we reintroduce any time-based history save.
-- **Performance pass (large notebooks)** — `upgradeAllEditors()` upgrades *every*
-  cell to CodeMirror; lazy-upgrade / destroy off-screen editors so large
-  notebooks stay responsive. Measure first, then target real bottlenecks.
-- **SRI hashes on CDN deps** — add `integrity="sha384-…"` + `crossorigin` to the
-  pinned CDN tags (CodeMirror, marked, JSZip, luaparse, web-llm, love.js). Do
-  last, once the dependency set is final — hashes are version-pinned, so doing it
-  early means regenerating on every dep bump.
-- **Code cleanup sweep** — recurring scan for dead code, legacy handlers, and
-  stale comments; run periodically.
-- **Import an existing project** — open an existing `main.lua` or `.love` into the
-  notebook (the inbound counterpart to Export). LoveIDE-shaped analog of the
-  oracle's multi-format import.
-- **Keyboard shortcuts** — none are defined yet (deliberately removed; only the
-  CM6 editor keymap and chat Enter-to-send remain). Add the full set in one pass
-  near v1.0 once the feature set is known, rather than piecemeal.
-- **Markdown link colour** — `.out-md a` is temporarily **underline-only** (inherits
-  body colour). Deferred the actual link hue rather than mint a new token in the
-  theming PR; revisit whether links get a dedicated colour (and what it is) later.
-
-## From the founding design doc — still open
-- True in-place love.js hot-restart vs full Module recreate (currently fresh
-  iframe per run).
-- Editing model: cells-only, or also a raw-file view kept in sync.
-- Project/bundle format once assets grow.
-- Branding: **resolved → LoveIDE** (hot-pink `#EC4899` "Love" + steel `#7C8A99`
-  "IDE"; heart-`</>` mark shelved).
-
-## Hosting
-Live on GitHub Pages from `main`; `coi-serviceworker.js` grants the cross-origin
-isolation love.js needs with no server config. The app is served directly as
-`index.html`, so it loads at the site root with no redirect.
+| Urgency | Risk | Item | Problem it solves | Solution ideas |
+|---|---|---|---|---|
+| High | Low | Secrets UI (Settings → Secrets) | The encrypted-at-rest storage layer is fully built (non-extractable AES-GCM device key, `getSecret`/`setSecret`/`listSecrets`/`deleteSecret`) but has zero UI — no way for a human to actually enter an API key. Hard prerequisite for the Agent plan's Backend interface + Remote item. | A Settings section: add/list/delete named secrets, masked input, no plaintext echo. Depends on Open Question 3 in the Agent plan (storage model) being settled first. |
+| Medium | Medium | Runtime debug bridge / live inspector | Variables/Tables are static (parsed source only); no way to see live values while a game runs, which also blocks any future "live-tuning" panel (the better alternative to naive hot-reload — see below). | Inject a small module into the `.love` to surface live values / a Lua REPL in Console; later could back interactive tuning controls in the Variables panel. |
+| Medium | Medium | love.js boot — confirm cross-browser | The `<base href>` fix is browser-verified once, on one browser. Can't be exercised in the dev sandbox (CDN egress blocked). Matters more once the Agent plan's Hands items lean on the boot/error signal for witnessing. | Manual sweep across Chrome/Firefox/Safari on the live GitHub Pages deploy. |
+| Medium | Low | Runtime error witnessing gap | Found this session: a Lua error *after* the game has already booted only reaches the Console text — `nb.runtime` stays `"running"` and the status pill never flips. `setRuntime('error')` currently only fires for pre-boot failures. The Agent plan's Hands items need a trustworthy, non-prose signal for "did that attempt break the game." | Have the Console bridge's `'err'` branch also flip a queryable runtime-error flag/state, without breaking the "running" status for a game that's still alive but has warned. |
+| Medium | Low | Automated integration tests | Several claims (love.js boot, CDN loads, WebLLM) are permanently stuck at "browser-only" on the claim ladder — no automated way to exercise them. Headless doc-model self-tests exist but don't cover this surface. | A Playwright suite driving the real `index.html` through load/edit/toggle/Run/Export. Dev-side only; the shipped app stays single-file. |
+| Low | Medium | Snapshot triggers & caps — revisit policy | The two original complaints here are already fixed: `pushHistory()` dedupes against the most recent entry and caps History at 30. What's still open is whether a flat cap is the right long-term policy, and whether a `trigger` field is worth adding. | A `trigger` field on the history schema for keyed-slot upsert (time-based saves overwrite, manual/event saves accumulate) — only useful if time-based autosave ever returns. Purely speculative now. |
+| Low | Medium | Import an existing project | No way to bring in an existing `.love` (zip w/ assets/libs/conf) — `Open` already handles a bare `.lua` file via raw text, but nothing more. | LoveIDE-shaped analog of the oracle's multi-format import: unzip, split into `main.lua` + assets + libs + conf. |
+| Low | Medium | Hot-reload on edit | Iterating currently needs a manual Run each time. Naive "auto-run on every keystroke" is broken by construction — text passes through invalid syntax mid-edit (e.g. deleting `400 - ball.r` leaves `ball.x > `, a parse error, not a value change). | Debounce until the source re-parses cleanly before auto-running; or better, favor live parameter tuning through interactive Variables-panel controls (needs the debug bridge row above) over raw hot-reload of text. |
+| Low | Medium | True in-place love.js hot-restart | Every Run tears down and recreates the whole iframe/Module, even for a one-line edit — slower than necessary. | Investigate an in-place hot-restart vs. the current fresh-iframe-per-run model. |
+| Low | Low | Storage management — remaining scope | Most of this is already fixed: no more 5MB fallback guess, Agents/Engine Cache-API rows already split out via `cacheScan()`, near-quota warning exists, per-model cache eviction exists, "Other" row reconciles against real origin usage. What's left: no cost-of-use measure, and no single action to clear the whole engine/CDN cache (only per-model). | A cost-of-use row (active model's VRAM now; token/$ once the Backend interface + Remote item lands); a "clear engine cache" action alongside the existing per-model eviction; prune-old-snapshots action (ties to the row above). |
+| Low | Low | File System Access API | Export is a manual download every time, even though desktop LÖVE could run project files straight from disk. | File System Access API (Chromium-only) to open/save against a real project folder, as progressive enhancement over the existing download-export path. Distinct from OPFS, which gives no user-visible files. |
+| Low | Low | Export polish | No fused single-file web build option; no drag-and-drop asset addition into the `.love`. | As stated — both additive to the Export subsystem, don't touch shared code. |
+| Low | Low | Demo / tutorial collection | No example LÖVE projects ship with the app to show capability or support a future Tutor mode. | A few example projects (bouncing ball, tiny platformer). Pairs with Tutor mode, itself gated behind the Agent plan's Backend and Modes items landing first. |
+| Low | Low | Performance pass (large notebooks) | `upgradeAllEditors()` upgrades every cell to CodeMirror; unmeasured whether this actually causes slowdown on large notebooks. | Measure first. If warranted, lazy-upgrade / destroy off-screen editors. |
+| Low | Low | Editing model: raw-file view | Some edits might be easier in a raw single-file view than cell-by-cell; undecided whether to add one. | A toggleable raw view kept in sync via the existing round-trip invariant — safe by construction if built, since `serialize(parse(x))===x` already holds. |
+| Low | Low | Project/bundle format | No defined bundle format yet for once a project's assets/libraries grow past a handful. | Nothing concrete yet — flagged as open, not scoped. |
+| Low | Low | Code cleanup sweep | Recurring drift — dead code, legacy handlers, stale comments accumulate over time. | Periodic scan, no fixed cadence. |
+| Low | Low | Keyboard shortcuts | None defined yet (deliberately deferred); only CM6's own keymap and chat Enter-to-send exist. | Add a full set in one pass near v1.0, once the feature set stabilizes, rather than piecemeal. |
+| Low | Low | Markdown link colour | `.out-md a` is underline-only, inheriting body colour — a hue was never chosen during the theming pass. | Pick a dedicated link hue against the current Paper×Ink token system. |
+| Low | Low | SRI hashes on CDN deps | Pinned CDN `<script>` tags (CodeMirror, marked, JSZip, luaparse, web-llm, love.js) lack `integrity`/`crossorigin` — a supply-chain hardening gap. | Add hashes once the dependency set is stable. Deliberately last by design — hashes are version-pinned, so doing it early means regenerating on every dep bump. |

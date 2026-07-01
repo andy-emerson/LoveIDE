@@ -82,11 +82,11 @@ Mirrors the numbered banner sections in `index.html` (JS sections 0–10).
 | 5 | CodeMirror | Lua editor on demand; textarea fallback | `loadCM` |
 | 6 | Cell DOM | Render/edit/reorder cells; markdown WYSIWYG | cell render + drag-to-reorder |
 | 6b | Activity panels | Outline, Libraries (require()-driven, add-by-URL) | panel renderers |
-| 6c | Agent (WebLLM) | In-browser model manager + streaming chat; Sight v0 | `detectWebGPU`, `initAgent`, agent manager + chat |
+| 6c | Agent (WebLLM) | In-browser model manager + streaming chat + real Sight | `detectWebGPU`, `initAgent`, agent manager + chat, `buildContext` |
 | 7 | Runtime | Build `.love`, boot via 2dengine/love.js | `RT`, `playerHTML`, `run`, `buildLoveBlob` |
 | 8 | Export | `.love` download | `exportLove` |
 | 9 | Self-tests | Doc-model invariants run on demand (Tests button) | `runSelfTests` |
-| 10 | Wiring + boot | Tabs, panes, event wiring, startup | `switchTab`, `setupPane`, `restorePanes` |
+| 10 | Wiring + boot | Tabs, panes, event wiring, startup | `switchTab`, `toggleRightTab`, `layoutRightPane`, `setupPane`, `restorePanes` |
 
 ### The runtime, specifically
 
@@ -99,6 +99,13 @@ can't resolve against the blob base — fixed with a `<base href>` pointing at t
 love.js CDN root. An iframe→parent `postMessage` bridge carries `print`/errors
 back out; that bridge is also the agent's witnessing signal ("booted vs Lua
 error").
+
+### Hosting
+
+Live on GitHub Pages from `main`; `coi-serviceworker.js` (above) grants the
+cross-origin isolation love.js needs with no server config beyond that. The
+app is served directly as `index.html`, so it loads at the site root with no
+redirect.
 
 ---
 
@@ -143,8 +150,12 @@ The oracle is built around a **DuckDB runtime substrate** shared with a
 - **Sight is static + Console**, not live runtime values. We parse the source
   (luaparse → Variables/Tables) rather than reading `player.x` at frame 600. A
   live debug bridge is an open option, not a commitment.
-- **Witnessing is coarser but already wired** — "the `.love` booted without a Lua
-  error," via the Console bridge — vs the oracle's typed query/var results.
+- **Witnessing exists but is incomplete.** The intended signal is "the `.love`
+  booted and ran without a Lua error," via the Console bridge — vs the oracle's
+  typed query/var results. Verified this only half-holds: pre-boot failures do
+  flip the app's runtime state, but a Lua error *after* the game is already
+  running only reaches the Console text, not the runtime state. Tracked in
+  `TODO.md`'s backlog.
 - **Checkpoint/revert is nearly free** — a snapshot is `serialize(nb.doc)` (+
   conf); the History machinery already exists. No `exportDBBytes` analog.
 
@@ -170,13 +181,12 @@ Coarse, per-subsystem. Status is the highest claim rung currently justified.
 | Activity panels | **B** | Outline / Libraries. **API-reference tab removed** (a 42-entry hardcoded cheat-sheet — a curated stub not worth a slot; a real reference would ride a complete love-api dataset + editor autocomplete). |
 | Package management | **B** | Adopts the oracle's *no-curated-list* model: the Libraries panel is driven by `require()` auto-detection + manual **add-by-URL**. **Divergence (design-sanctioned, Lua≠Python):** the oracle resolves packages by *name* via micropip/PyPI; Lua has no in-browser resolver (no LuaRocks), so LoveIDE resolves by *URL* — single-file pure-Lua only, vendored into the `.love`. |
 | Runtime (love.js) | **browser-only** | Boots when served cross-origin-isolated; `<base href>` fix landed and user-confirmed once ("It works!"). Cross-browser sweep still owed. Not exercisable in sandbox (CDN egress blocked). |
-| Console | **S → planned** | Currently a strip under the canvas; promote to a real RHS tab (TODO Step 1) — it's also the agent's Sight/witness channel. |
+| Console / RHS panels | **B** | Canvas, Variables, Tables, and Console are independently-toggleable RHS panels, not mutually-exclusive tabs — any combination can be open at once, stacking top-to-bottom in activity-bar order (Canvas first, Console last) with draggable dividers between open panels; 0 open collapses the pane. Console has its own empty state plus Clear/Copy actions. Also the agent's Sight/witness channel, via `recentConsole()`. **Divergence from the earlier plan:** the oracle-inspired idea of promoting Console to a single peer tab was superseded during design — a plain tab would have fought visibility with Canvas/Variables/Tables, so the toggle/stack model replaced it. |
 | Export `.love` | **D** | JSZip build incl. main.lua + conf + assets + libs. Download path browser-only. |
 | conf.lua | **B** | `generateConfLua`, defaults, Game-settings panel. |
 | Agent — local | **browser-only** | WebLLM manager (Qwen2.5-Coder 1.5B/3B/7B), install/activate, VRAM gate, streaming chat. Untestable in sandbox (no GPU). |
 | Agent — Sight | **T** (branching) / **browser-only** (e2e) | `buildContext()`: full current `main.lua` + conf + recent Console each turn, bounded history, luaDigest fallback when over budget; `context_window_size` raised to 8192 at load. Full-vs-digest branching tested headless; window override is dependency-reasoned, not run. |
 | Agent — Hands/Modes/Backends | **S** | Designed in `TODO.md`; not built. |
-| Hosting | **B** | GitHub Pages from `main`; `coi-serviceworker.js` grants isolation; the app is served directly as `index.html` (root). |
 
 When a row's rung changes or a new divergence is decided, update it here in the
 same commit as the code change.

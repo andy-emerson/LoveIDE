@@ -305,7 +305,7 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .pane-placeholder svg { width: 28px; height: 28px; opacity: 0.35; margin-bottom: 4px; }
 .pane-placeholder .pp-hint { font-size: 11px; opacity: 0.6; }
 /* Let a list-wrap fill its pane when it holds only an empty-state, so the placeholder centers vertically too. */
-#hist-list:has(> .pane-placeholder), #asset-list:has(> .pane-placeholder), #outline-list:has(> .pane-placeholder), #var-list:has(> .pane-placeholder), #table-list:has(> .pane-placeholder) { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+#hist-list:has(> .pane-placeholder), #asset-list:has(> .pane-placeholder), #outline-list:has(> .pane-placeholder), #var-list:has(> .pane-placeholder), #table-list:has(> .pane-placeholder), #console:has(> .pane-placeholder) { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 .list-row { display: flex; align-items: center; gap: 8px; padding: 7px 14px; font-size: 12px; cursor: default; border-bottom: .5px solid var(--border-faint); }
 .list-row:hover { background: var(--bg-secondary); }
 .list-row .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -464,16 +464,26 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .chat-input button svg { width: 15px; height: 15px; }
 
 /* ════════════════════════════════════════════════════════════════════════════
- * 8. PREVIEW (right pane)
+ * 8. RIGHT PANE — Canvas / Variables / Tables / Console. Each is independently
+ *    toggled open by its activity-bar button (not a mutually-exclusive tab) and,
+ *    when 2+ are open, they stack top-to-bottom in activity-bar order — Canvas
+ *    is first in the bar so it's always topmost whenever it's open.
  * ════════════════════════════════════════════════════════════════════════════ */
 .rh-title { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-secondary); }
-.right-panel { display: none; flex: 1 1 auto; min-height: 0; flex-direction: column; }
+.right-panel { display: none; flex: 1 1 0; min-height: 60px; flex-direction: column; }
 .right-panel.active { display: flex; }
+.right-panel .rp-header { flex-shrink: 0; padding: 7px 12px; font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .06em; border-bottom: .5px solid var(--border-faint); background: var(--bg-secondary); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.right-panel .rp-header .mini { cursor: pointer; color: var(--text-tertiary); display: flex; }
+.right-panel .rp-header .mini:hover { color: var(--text-primary); }
+.right-panel .rp-header .mini svg { width: 13px; height: 13px; }
+/* Draggable divider between two open right-panels — same visual language as .chat-resizer. */
+.rv-resizer { height: 7px; flex-shrink: 0; cursor: ns-resize; position: relative; }
+.rv-resizer::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: .5px; background: var(--border-faint); transition: background .15s; }
+.rv-resizer:hover::before, .rv-resizer.dragging::before { background: var(--border-medium); }
 #stage { flex: 1; min-height: 0; display: grid; place-items: center; position: relative; overflow: hidden; background: #0c0c0c; }
 #stage iframe { border: 0; width: 100%; height: 100%; background: #000; }
 #stage .pane-placeholder { max-width: 360px; }
-#console { height: 150px; flex-shrink: 0; overflow-y: auto; border-top: .5px solid var(--border-faint); background: var(--bg-secondary); font-family: var(--font-mono); font-size: 11.5px; line-height: 1.5; padding: 8px 12px; white-space: pre-wrap; }
-#console.hidden { display: none; }
+#console { flex: 1 1 0; min-height: 0; overflow-y: auto; background: var(--bg-secondary); font-family: var(--font-mono); font-size: 11.5px; line-height: 1.5; padding: 8px 12px; white-space: pre-wrap; }
 #console .err { color: var(--fn-red); }
 #console .ok { color: var(--fn-green); }
 #console .dim { color: var(--text-tertiary); }
@@ -634,12 +644,11 @@ input[type=file] { display: none; }
 
     <div class="pane-resizer" id="right-resizer"></div>
 
-    <!-- right pane: preview -->
+    <!-- right pane: canvas / variables / tables / console — independently
+         toggled open by the activity bar below, stacked in its order -->
     <div id="right-pane">
-      <div class="pane-header"><span class="rh-title" id="right-pane-header">Preview · love.js</span>
-        <span class="mini" id="toggle-console" title="Toggle console" data-ico="terminal"></span>
-      </div>
-      <div class="right-panel active" id="rpanel-preview" data-right-tab="preview">
+      <div class="right-panel active" id="rpanel-canvas" data-right-tab="canvas">
+        <div class="rp-header"><span class="rh-title">Canvas</span></div>
         <div id="stage">
           <div class="pane-placeholder" id="placeholder">
             <span data-ico="display"></span>
@@ -647,21 +656,36 @@ input[type=file] { display: none; }
             <div class="pp-hint">Press Run to build &amp; boot your game. The exported .love also runs in desktop LÖVE.</div>
           </div>
         </div>
-        <div id="console" class="hidden"></div>
       </div>
+      <div class="rv-resizer" id="rresizer-canvas"></div>
       <div class="right-panel" id="rpanel-variables" data-right-tab="variables">
+        <div class="rp-header"><span class="rh-title">Variables</span></div>
         <div id="var-list" style="flex:1;overflow-y:auto"></div>
       </div>
+      <div class="rv-resizer" id="rresizer-variables"></div>
       <div class="right-panel" id="rpanel-tables" data-right-tab="tables">
+        <div class="rp-header"><span class="rh-title">Tables</span></div>
         <div id="table-list" style="flex:1;overflow-y:auto"></div>
+      </div>
+      <div class="rv-resizer" id="rresizer-tables"></div>
+      <div class="right-panel" id="rpanel-console" data-right-tab="console">
+        <div class="rp-header">
+          <span class="rh-title">Console</span>
+          <span style="display:flex;gap:8px">
+            <span class="mini" id="console-copy" title="Copy console" data-ico="copy"></span>
+            <span class="mini" id="console-clear" title="Clear console" data-ico="trash"></span>
+          </span>
+        </div>
+        <div id="console"></div>
       </div>
     </div>
 
-    <!-- right activity bar -->
+    <!-- right activity bar — Console last, so it always stacks at the bottom -->
     <div id="right-activity-bar" class="activity-bar">
-      <button class="activity-bar-btn active" data-right-tab="preview" title="Preview" data-ico="display"></button>
+      <button class="activity-bar-btn active" data-right-tab="canvas" title="Canvas" data-ico="display"></button>
       <button class="activity-bar-btn" data-right-tab="variables" title="Variables" data-ico="variable"></button>
       <button class="activity-bar-btn" data-right-tab="tables" title="Tables" data-ico="table"></button>
+      <button class="activity-bar-btn" data-right-tab="console" title="Console" data-ico="terminal"></button>
     </div>
   </div>
 
@@ -721,6 +745,7 @@ const I = {
   'display':'<path d="M3 5a1 1 0 0 1 1 -1h16a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-16a1 1 0 0 1 -1 -1v-10z" /><path d="M7 20h10" /><path d="M9 16v4" /><path d="M15 16v4" />',  // tabler device-desktop
   'variable':'<path d="M5 4c-2.5 5 -2.5 10 0 16m14 -16c2.5 5 2.5 10 0 16m-10 -11h1c1 0 1 1 2.016 3.527c.984 2.473 .984 3.473 1.984 3.473h1" /><path d="M8 16c1.5 0 3 -2 4 -3.5s2.5 -3.5 4 -3.5" />',  // tabler variable
   'table':'<path d="M3 5a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-14z" /><path d="M3 10h18" /><path d="M10 3v18" />',  // tabler table
+  'copy':'<path d="M8 8m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z" /><path d="M16 8v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2" />',  // tabler copy
 };
 function svg(name, cls) {
   return `<svg class="${cls||''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${I[name]||''}</svg>`;
@@ -2273,7 +2298,7 @@ function confSummary(){
 // the Console DOM so it reflects exactly what the human sees.
 function recentConsole(maxLines){
   maxLines=maxLines||14;
-  return $$('#console > div').slice(-maxLines)
+  return $$('#console > div:not(.pane-placeholder)').slice(-maxLines)
     .map(d=>{ const t=(d.textContent||'').trim(); return t?((d.classList.contains('err')?'ERROR ':d.classList.contains('warn')?'WARN ':'')+t):''; })
     .filter(Boolean).join('\n');
 }
@@ -2366,9 +2391,24 @@ function syncRunStop(state){
   const lbl = $('#run-label'); if (lbl) lbl.textContent = word;
 }
 function setAgent(state){ nb.agentState=state; setPill($('#st-agent'), state, 'Agent: '+(state==='loading'?'thinking':state)); }
-function showConsole(show){ const c=$('#console'); c.classList.toggle('hidden', show===false ? true : (show===true?false:!c.classList.contains('hidden')?true:false)); }
-function logConsole(msg,cls){ const c=$('#console'); c.classList.remove('hidden'); c.appendChild(elem('div',{class:cls||'',text:msg})); c.scrollTop=c.scrollHeight; }
-function clearConsole(){ $('#console').innerHTML=''; }
+// Console is just an RHS panel now — visibility is whatever `rightOpen` says,
+// not a hidden-class toggle. Logging never force-opens it (Run used to; that
+// fought anyone who'd deliberately closed it — now Console can stay pinned
+// open alongside Canvas instead, so forcing it was never needed).
+function logConsole(msg,cls){
+  const c=$('#console'); const ph=c.querySelector('.pane-placeholder'); if(ph) ph.remove();
+  c.appendChild(elem('div',{class:cls||'',text:msg})); c.scrollTop=c.scrollHeight;
+}
+function clearConsole(){
+  const c=$('#console'); c.innerHTML='';
+  c.appendChild(panePlaceholder('terminal','No output yet','Press Run to see prints, warnings, and errors here'));
+}
+function copyConsole(){
+  const lines=$$('#console > div:not(.pane-placeholder)');
+  if (!lines.length){ toast('Console is empty'); return; }
+  navigator.clipboard.writeText(lines.map(d=>d.textContent).join('\n'))
+    .then(()=>toast('Console copied')).catch(()=>toast('Copy failed','err'));
+}
 
 let _jszip=null;
 function loadJSZip(){
@@ -2434,7 +2474,7 @@ function hookLoveMessages(){
 }
 async function run(){
   saveDoc(true);
-  clearConsole(); showConsole(true);
+  clearConsole();
   if (!isolated()){
     setRuntime('error');
     showPlaceholder();
@@ -2494,7 +2534,7 @@ function runSelfTests(){
   try { const c={id:1,type:'lua',code:'local z=42',level:0,before:''}; c.type='md'; c.type='lua'; const ok=c.code==='local z=42'; res.push({n:'toggle preserves content',ok,note:''}); if(ok)pass++; } catch(e){ res.push({n:'toggle',ok:false,note:e.message}); }
   // adjacent lua cells keep separator
   try { const d={cells:[newCell('lua'),newCell('lua')],trailing:'\n'}; d.cells[0].code='a()'; d.cells[1].code='b()'; normalizeGlue(d); const re=parse(serialize(d)); const ok=re.cells.length===2&&re.cells.every(c=>c.type==='lua'); res.push({n:'adjacent lua keep separator',ok,note:'got '+re.cells.length}); if(ok)pass++; } catch(e){ res.push({n:'separator',ok:false,note:e.message}); }
-  clearConsole(); showConsole(true);
+  clearConsole();
   logConsole('Self-tests: '+pass+'/'+res.length+' passed', pass===res.length?'ok':'err');
   res.forEach(r=>logConsole((r.ok?'  ✓ ':'  ✗ ')+r.n+(r.note?'  — '+r.note:''), r.ok?'dim':'err'));
   toast(pass===res.length?('All '+res.length+' tests passed'):(res.length-pass)+' test(s) failed', pass===res.length?'':'err');
@@ -2552,36 +2592,72 @@ function wireActivityBars(){
     };
   });
   $$('#right-activity-bar .activity-bar-btn').forEach(btn=>{
-    btn.onclick=()=>{
-      const tab=btn.dataset.rightTab;
-      if (!PANES.right.isCollapsed() && btn.classList.contains('active')){
-        PANES.right.collapse();
-        $$('#right-activity-bar .activity-bar-btn').forEach(b=>b.classList.remove('active'));
-        lsSet('loveide:rightTab','');
-      } else {
-        switchRightTab(tab);
-        if (PANES.right.isCollapsed()) PANES.right.expand();
-        lsSet('loveide:rightTab',tab);
-      }
-    };
+    btn.onclick=()=>toggleRightTab(btn.dataset.rightTab);
   });
 }
-const RIGHT_TITLES = { preview:'Preview · love.js', variables:'Variables · main.lua', tables:'Tables · main.lua' };
-function switchRightTab(name){
-  $$('#right-activity-bar .activity-bar-btn').forEach(b=>b.classList.toggle('active', b.dataset.rightTab===name));
-  $$('#right-pane .right-panel').forEach(p=>p.classList.toggle('active', p.dataset.rightTab===name));
-  const h=$('#right-pane-header'); if(h) h.textContent = RIGHT_TITLES[name]||name;
-  const tc=$('#toggle-console'); if(tc) tc.style.display = name==='preview' ? '' : 'none';
-  if (name==='variables') renderVariablesTab();
-  if (name==='tables') renderTablesTab();
+// RHS panels aren't mutually-exclusive tabs — each activity-bar button toggles
+// its panel independently open/closed; 0 open collapses the pane, 2+ open stack
+// top-to-bottom in this order (Canvas first, so it's always topmost when open).
+const RIGHT_ORDER = ['canvas','variables','tables','console'];
+let rightOpen = new Set(['canvas']);
+function nextOpenAfter(tab){
+  for (let i=RIGHT_ORDER.indexOf(tab)+1; i<RIGHT_ORDER.length; i++) if (rightOpen.has(RIGHT_ORDER[i])) return RIGHT_ORDER[i];
+  return null;
 }
+// Applies `rightOpen` to the DOM: which panels show, which resizers between
+// them show, button active-states. A manual resizer drag resets to an equal
+// split whenever the open set changes — simpler than trying to preserve ratios
+// across an added/removed panel.
+function layoutRightPane(){
+  RIGHT_ORDER.forEach(tab=>{
+    const p=$('#rpanel-'+tab); if(!p) return;
+    p.classList.toggle('active', rightOpen.has(tab));
+    p.style.flex='';
+  });
+  $$('#right-activity-bar .activity-bar-btn').forEach(b=>b.classList.toggle('active', rightOpen.has(b.dataset.rightTab)));
+  ['canvas','variables','tables'].forEach(tab=>{
+    const r=$('#rresizer-'+tab); if(!r) return;
+    r.style.display = (rightOpen.has(tab) && nextOpenAfter(tab)) ? '' : 'none';
+  });
+  if (rightOpen.has('variables')) renderVariablesTab();
+  if (rightOpen.has('tables')) renderTablesTab();
+}
+function toggleRightTab(tab){
+  rightOpen.has(tab) ? rightOpen.delete(tab) : rightOpen.add(tab);
+  lsSet('loveide:rightOpen', JSON.stringify(RIGHT_ORDER.filter(t=>rightOpen.has(t))));
+  if (rightOpen.size===0) PANES.right.collapse();
+  else if (PANES.right.isCollapsed()) PANES.right.expand();
+  layoutRightPane();
+}
+// Drag the divider between the panel at `afterTab` and the next open one below
+// it. Resolved fresh on mousedown (not cached) since the open set can change.
+function wireRightResizer(id, afterTab){
+  const r=$('#'+id); if(!r) return;
+  let drag=false, sy=0, ha=0, hb=0, above=null, below=null;
+  r.addEventListener('mousedown', e=>{
+    const belowTab=nextOpenAfter(afterTab);
+    above=$('#rpanel-'+afterTab); below=belowTab && $('#rpanel-'+belowTab);
+    if (!above || !below) return;
+    drag=true; sy=e.clientY; ha=above.offsetHeight; hb=below.offsetHeight;
+    r.classList.add('dragging'); document.body.style.cursor='ns-resize'; document.body.style.userSelect='none';
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', e=>{
+    if (!drag) return;
+    const min=60, total=ha+hb, na=Math.max(min, Math.min(total-min, ha+(e.clientY-sy)));
+    above.style.flex='0 0 '+na+'px'; below.style.flex='0 0 '+(total-na)+'px';
+  });
+  window.addEventListener('mouseup', ()=>{ if(!drag) return; drag=false; r.classList.remove('dragging'); document.body.style.cursor=''; document.body.style.userSelect=''; });
+}
+function wireRightResizers(){ ['canvas','variables','tables'].forEach(t=>wireRightResizer('rresizer-'+t, t)); }
 function restorePanes(){
   const lt=lsGet('loveide:leftTab', undefined);
   if (lt===''){ PANES.left.collapse(); $$('#left-activity-bar .activity-bar-btn').forEach(b=>b.classList.remove('active')); }
   else if (lt){ switchTab(lt); if(lt==='settings') renderStorage(); }
-  const rt=lsGet('loveide:rightTab','preview');
-  if (rt===''){ PANES.right.collapse(); $$('#right-activity-bar .activity-bar-btn').forEach(b=>b.classList.remove('active')); }
-  else { switchRightTab(rt); }
+  let saved; try { saved=JSON.parse(lsGet('loveide:rightOpen','["canvas"]')); } catch(e){ saved=['canvas']; }
+  rightOpen = new Set(Array.isArray(saved) ? saved.filter(t=>RIGHT_ORDER.includes(t)) : ['canvas']);
+  if (rightOpen.size===0) PANES.right.collapse(); else if (PANES.right.isCollapsed()) PANES.right.expand();
+  layoutRightPane();
 }
 // Collapsible Settings sections — header click toggles; collapsed state persists
 // per-section in localStorage (a legit prefs use). Same convention as Variables.
@@ -2607,10 +2683,11 @@ function wire(){
   $('#asset-input').onchange=e=>{ addAssets(e.target.files); e.target.value=''; };
   $('#snap-now').onclick=()=>{ saveDoc(true); toast('Snapshot saved'); };
   $('#snap-clear').onclick=()=>{ if(confirm('Clear all snapshots?')){ nb.history=[]; persistHistory(); renderHistory(); renderStorage(); toast('Snapshots cleared'); } };
-  $('#toggle-console').onclick=()=>showConsole();
+  $('#console-clear').onclick=clearConsole;
+  $('#console-copy').onclick=copyConsole;
   $('#st-agent').onclick=()=>openTab('assistant');
   const ln=$('#opt-linenums'); ln.checked=nb.opts.lineNumbers; ln.onchange=()=>{ nb.opts.lineNumbers=ln.checked; lsSet(LS.opts,JSON.stringify(nb.opts)); renderNotebook(); };
-  setupPane('left'); setupPane('right'); wireActivityBars();
+  setupPane('left'); setupPane('right'); wireActivityBars(); wireRightResizers();
   window.addEventListener('beforeunload',()=>{ try{ syncFromEditors(); saveDoc(false); }catch(e){} });
 }
 
@@ -2635,6 +2712,7 @@ async function boot(){
   renderLibs();
   renderConf();
   renderStorage();
+  clearConsole();
   initAgent();
   setDirty(false);
   setRuntime('idle');
