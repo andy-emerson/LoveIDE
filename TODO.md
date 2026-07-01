@@ -105,8 +105,14 @@ The chat is otherwise **blind** — no real Sight, no Hands.
 
 ## Backlog (non-agent)
 
-- **Console → dedicated RHS tab** (also Step 1 above): love.js print/errors +
-  build log, with Clear; currently a strip under the canvas.
+- **Console rework** (also Step 1 above): currently a fixed 150px strip under the
+  canvas whose only control is one unlabeled terminal toggle-icon in the Preview
+  pane-header. Candidates to consider (none blocking; deferred out of the theming
+  PR): (a) hide doesn't stick — the next Run auto-reopens it; (b) no manual **Clear**;
+  (c) no **Copy** (wanted once the agent/you paste an error); (d) no header/label or
+  visual identity on the strip; (e) fixed height, not **resizable** (cf. the chat
+  input); (f) the lone control is an easy-to-miss header icon. Possibly promote to a
+  dedicated RHS tab. Log lines are already colour-coded (ok/warn/err green/amber/red).
 - **File System Access API** — open/save against a *real* project folder so files
   land where desktop LÖVE can run them (no export step). Chromium-only;
   progressive enhancement with download-export as the fallback. (Distinct from
@@ -148,10 +154,16 @@ The chat is otherwise **blind** — no real Sight, no Hands.
 - **Demo / tutorial collection** — a few example LÖVE projects (bouncing ball,
   tiny platformer) shipped with the app to show capabilities and common patterns.
   Pairs with the agent's Tutor mode, where each step is a real cell on the canvas.
-- **History autosave redesign** — keyed-slot model by trigger type: a time-based
-  save overwrites the previous time-based save for the current project; manual
-  saves always accumulate. Add a `trigger` field to the history schema with
-  upsert logic.
+- **Snapshot triggers & caps — revisit** — the model is now settled in shape but
+  crude in policy. Two mechanisms, kept named apart: (1) the **working buffer** —
+  one slot (`doc/current`), overwritten on every edit + on unload, silent, crash
+  recovery only, no UI; (2) **snapshots** — the discrete History list, created on
+  Run / New / Open / Restore / manual. Current stopgap: **Run always snapshots**
+  (even if nothing changed → duplicate entries) and there is **no cap** (History
+  grows unbounded). Revisit: gate Run on dirty-since-last-snapshot, add a trim cap
+  (oracle-style), and consider a `trigger` field on the history schema so a
+  keyed-slot upsert (time-based saves overwrite, manual/event saves accumulate) is
+  possible if we reintroduce any time-based history save.
 - **Performance pass (large notebooks)** — `upgradeAllEditors()` upgrades *every*
   cell to CodeMirror; lazy-upgrade / destroy off-screen editors so large
   notebooks stay responsive. Measure first, then target real bottlenecks.
@@ -167,6 +179,9 @@ The chat is otherwise **blind** — no real Sight, no Hands.
 - **Keyboard shortcuts** — none are defined yet (deliberately removed; only the
   CM6 editor keymap and chat Enter-to-send remain). Add the full set in one pass
   near v1.0 once the feature set is known, rather than piecemeal.
+- **Markdown link colour** — `.out-md a` is temporarily **underline-only** (inherits
+  body colour). Deferred the actual link hue rather than mint a new token in the
+  theming PR; revisit whether links get a dedicated colour (and what it is) later.
 
 ## From the founding design doc — still open
 - True in-place love.js hot-restart vs full Module recreate (currently fresh

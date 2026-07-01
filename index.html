@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="auto">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -70,76 +70,98 @@
 * { scrollbar-color: var(--border-medium) transparent; scrollbar-width: thin; }
 
 /* ════════════════════════════════════════════════════════════════════════════
- * 2. THEME VARIABLES  (ported from the oracle)
+ * 2. THEME — Paper × Ink engine (parametric, computed in OKLCH).
+ *
+ *   The JS engine (see "THEME ENGINE", inlined verbatim from Theme/loveide-theme.js)
+ *   sets every theme token live. This block only REGISTERS those tokens as
+ *   animatable @property <color>s (so slider drags cross-fade), plus the fog
+ *   text-halo, the cross-fade helper, and the two range-slider skins (gradient
+ *   tracks kept, knobs de-decorated). No colour math here — it lives in the engine.
  * ════════════════════════════════════════════════════════════════════════════ */
 :root {
   --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   --radius-md: 8px;
   --radius-lg: 12px;
-
-  --fn-execute: #3b7dd8; --fn-execute-bg: rgba(59,125,216,.12); --fn-execute-border: rgba(59,125,216,.35);
-  --fn-success: #1e8a3e; --fn-success-bg: rgba(30,138,62,.11);
-  --fn-danger:  #d73a49; --fn-danger-bg:  rgba(215,58,73,.11);
-  --fn-working: #b07d00; --fn-working-bg: rgba(176,125,0,.13); --fn-working-border: rgba(176,125,0,.35);
-
-  /* LoveIDE brand — light/dark agnostic: hot-pink "Love" + steel "IDE".
-     Both read on light and dark backgrounds, so no per-theme override. */
-  --brand-love: #EC4899;
-  --brand-ide:  #7C8A99;
-
-  /* cell-type colors share the brand: Lua = pink, Markdown = steel. Tints use
-     color-mix with transparent so they work on light and dark backgrounds. */
-  --type-lua-bg: color-mix(in srgb, var(--brand-love) 15%, transparent); --type-lua-fg: var(--brand-love);
-  --type-md-bg:  color-mix(in srgb, var(--brand-ide) 20%, transparent);  --type-md-fg:  var(--brand-ide);
+  --brand-pink: #EC4899;  /* fixed brand accent — pink (not part of Paper×Ink) */
+  --brand-gray: #7C8A99;  /* fixed brand accent — steel gray */
+  /* Functional colors — fixed hues, readable on any paper (Tailwind-500 solids),
+     named by hue (like --brand-*). Each -bg tint (18%) and -border ring (35%) is
+     DERIVED from the solid via color-mix. green=ok · amber=busy · red=error · blue=action. */
+  --fn-green: #22c55e;  --fn-green-bg: color-mix(in srgb, var(--fn-green) 18%, transparent);
+                        --fn-green-border: color-mix(in srgb, var(--fn-green) 35%, transparent);
+  --fn-amber: #f59e0b;  --fn-amber-bg: color-mix(in srgb, var(--fn-amber) 18%, transparent);
+                        --fn-amber-border: color-mix(in srgb, var(--fn-amber) 35%, transparent);
+  --fn-red:   #ef4444;  --fn-red-bg:   color-mix(in srgb, var(--fn-red)   18%, transparent);
+                        --fn-red-border:   color-mix(in srgb, var(--fn-red)   35%, transparent);
+  --fn-blue:  #3b82f6;  --fn-blue-bg:  color-mix(in srgb, var(--fn-blue)  18%, transparent);
+                        --fn-blue-border:  color-mix(in srgb, var(--fn-blue)  35%, transparent);
 }
-[data-theme="ember"], [data-theme="dusk"], [data-theme="carbon"] {
-  --fn-execute: #6ba3e8; --fn-execute-bg: rgba(107,163,232,.15); --fn-execute-border: rgba(107,163,232,.40);
-  --fn-success: #4cae64; --fn-success-bg: rgba(76,174,100,.15);
-  --fn-danger:  #f07178; --fn-danger-bg:  rgba(240,113,120,.15);
-  --fn-working: #e0b341; --fn-working-bg: rgba(224,179,65,.16); --fn-working-border: rgba(224,179,65,.40);
+/* Registered, animatable theme tokens (verbatim from Theme/loveide-theme.css). */
+@property --bg-primary       { syntax: '<color>'; inherits: true; initial-value: #ffffff; }
+@property --bg-secondary     { syntax: '<color>'; inherits: true; initial-value: #f3f1ee; }
+@property --bg-tertiary      { syntax: '<color>'; inherits: true; initial-value: #e8e4df; }
+@property --bg-info          { syntax: '<color>'; inherits: true; initial-value: #edeae5; }
+@property --text-primary     { syntax: '<color>'; inherits: true; initial-value: #2a2622; }
+@property --text-secondary   { syntax: '<color>'; inherits: true; initial-value: #6c655d; }
+@property --text-tertiary    { syntax: '<color>'; inherits: true; initial-value: #9a9289; }
+@property --border-faint     { syntax: '<color>'; inherits: true; initial-value: rgba(44,44,44,.10); }
+@property --border-light     { syntax: '<color>'; inherits: true; initial-value: rgba(44,44,44,.18); }
+@property --border-medium    { syntax: '<color>'; inherits: true; initial-value: rgba(44,44,44,.30); }
+@property --border-info      { syntax: '<color>'; inherits: true; initial-value: #8a8a8a; }
+@property --syntax-keyword   { syntax: '<color>'; inherits: true; initial-value: #b6418a; }
+@property --syntax-number    { syntax: '<color>'; inherits: true; initial-value: #c14b5f; }
+@property --syntax-function  { syntax: '<color>'; inherits: true; initial-value: #bb4f87; }
+@property --syntax-string    { syntax: '<color>'; inherits: true; initial-value: #c25741; }
+@property --syntax-operator  { syntax: '<color>'; inherits: true; initial-value: #b15080; }
+/* Fog text-halo — dual light/dark glyph ring; ~0 except in the Paper Fog/Gloom band. */
+.loveide-themed {
+  text-shadow:
+    0 0 2px var(--ink-halo-l, transparent),
+    0 0 1px var(--ink-halo-d, transparent),
+    0 0 1px var(--ink-halo-d, transparent),
+    0 0 3px var(--ink-halo-d, transparent);
 }
-[data-theme="linen"] {
-  --bg-primary:#f7f5f1; --bg-secondary:#edeae4; --bg-tertiary:#e3dcd4; --bg-info:#ece3d8;
-  --text-primary:#2c2620; --text-secondary:#6a4e2e; --text-tertiary:#a09080;
-  --text-info:#7a5c18; --text-danger:#904030; --text-success:#4e5e28;
-  --border-faint:rgba(44,38,32,.10); --border-light:rgba(44,38,32,.18); --border-medium:rgba(44,38,32,.28); --border-info:#8a6838;
-  --syntax-keyword:#7a5a10; --syntax-string:#8a4828; --syntax-operator:#7a6858;
+/* Smooth cross-fade on theme change (tokens are registered <color>s). */
+/* Cross-fade ON: the theme tokens are registered <color>s, so animating them fades the
+   whole UI on a Paper/Ink drag. Applied broadly; components with their own (faster)
+   transitions override this for their hover/active states — they just snap on theme change. */
+.loveide-themed * { transition: background-color .35s ease, color .35s ease, border-color .35s ease; }
+@media print { * { transition: none !important; } }
+/* Slider skins — gradient tracks kept; knobs de-decorated to a plain neutral circle.
+   (WebKit can't keep the real OS thumb once the track is custom, so the knob is a
+   simple themed circle — no pink ring, no shadow.) */
+.nd-range {
+  -webkit-appearance: none; appearance: none;
+  position: relative; z-index: 1;   /* thumb paints above the wrapper's track bar */
+  width: 100%; height: 20px; margin: 0; background: transparent; outline: none; cursor: pointer;
 }
-[data-theme="slate"] {
-  --bg-primary:#f2f4f0; --bg-secondary:#e7ece4; --bg-tertiary:#d8e0d4; --bg-info:#e0eadc;
-  --text-primary:#26302a; --text-secondary:#486848; --text-tertiary:#88988a;
-  --text-info:#387050; --text-danger:#884038; --text-success:#387040;
-  --border-faint:rgba(38,48,42,.10); --border-light:rgba(38,48,42,.18); --border-medium:rgba(38,48,42,.28); --border-info:#487858;
-  --syntax-keyword:#386050; --syntax-string:#806820; --syntax-operator:#6a7a6c;
+/* Visible track is drawn on the WRAPPER (.nd-track), inset by half a thumb (8px) each
+   side so its ends coincide with the knob CENTRE at min/max. The native track is made
+   transparent below, so thumb travel is unchanged — only the painted bar narrows. */
+/* flex centres the bar on the input (a bare inline-block wrapper adds a baseline gap
+   that dropped the track below the knob centre). */
+.nd-track { position: relative; display: flex; align-items: center; }
+.nd-track::before {
+  content: ''; position: absolute; left: 8px; right: 8px; top: 50%; transform: translateY(-50%);
+  height: 7px; border-radius: 6px; border: 1px solid var(--border-light); pointer-events: none;
+  background: linear-gradient(90deg, #fbfaf9, #cfcdca 38%, #807e7b 60%, #3a3937 82%, #191817);
+  background-clip: padding-box;   /* keep the gradient INSIDE the border so its white/black ends don't bleed past it as slivers */
 }
-[data-theme="ember"] {
-  --bg-primary:#272220; --bg-secondary:#1e1b18; --bg-tertiary:#382e28; --bg-info:#382c1e;
-  --text-primary:#c8bfb0; --text-secondary:#b09060; --text-tertiary:#786e60;
-  --text-info:#c09030; --text-danger:#c86858; --text-success:#88a060;
-  --border-faint:rgba(200,191,176,.10); --border-light:rgba(200,191,176,.18); --border-medium:rgba(200,191,176,.28); --border-info:#c09850;
-  --syntax-keyword:#caa040; --syntax-string:#c07848; --syntax-operator:#a08870;
+.nd-track.wc::before {
+  background: linear-gradient(90deg, oklch(0.61 0.018 248), oklch(0.58 0.06 352), oklch(0.63 0.175 351));
+  background-clip: padding-box;
 }
-[data-theme="dusk"] {
-  --bg-primary:#1f2120; --bg-secondary:#191919; --bg-tertiary:#272928; --bg-info:#21271f;
-  --text-primary:#bec0b6; --text-secondary:#688060; --text-tertiary:#565a52;
-  --text-info:#5a8050; --text-danger:#b07068; --text-success:#6a9050;
-  --border-faint:rgba(190,192,182,.10); --border-light:rgba(190,192,182,.18); --border-medium:rgba(190,192,182,.28); --border-info:#587050;
-  --syntax-keyword:#88a850; --syntax-string:#b0a040; --syntax-operator:#748060;
+.nd-range::-webkit-slider-runnable-track { height: 7px; background: transparent; border: none; }
+.nd-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px; border-radius: 50%; margin-top: -5px; cursor: pointer;
+  background: var(--bg-primary); border: 1px solid var(--border-medium);
 }
-[data-theme="cloud"] {
-  --bg-primary:#f5f5f5; --bg-secondary:#ebebeb; --bg-tertiary:#dcdcdc; --bg-info:#e4e4e4;
-  --text-primary:#282828; --text-secondary:#585858; --text-tertiary:#989898;
-  --text-info:#484848; --text-danger:#884040; --text-success:#487040;
-  --border-faint:rgba(40,40,40,.10); --border-light:rgba(40,40,40,.18); --border-medium:rgba(40,40,40,.28); --border-info:#787878;
-  --syntax-keyword:#181818; --syntax-string:#606060; --syntax-operator:#7a7a7a;
-}
-[data-theme="carbon"] {
-  --bg-primary:#202020; --bg-secondary:#181818; --bg-tertiary:#2a2a2a; --bg-info:#242424;
-  --text-primary:#c8c8c8; --text-secondary:#888888; --text-tertiary:#585858;
-  --text-info:#a0a0a0; --text-danger:#c07878; --text-success:#80a878;
-  --border-faint:rgba(200,200,200,.10); --border-light:rgba(200,200,200,.18); --border-medium:rgba(200,200,200,.28); --border-info:#808080;
-  --syntax-keyword:#e0e0e0; --syntax-string:#a0a0a0; --syntax-operator:#787878;
+.nd-range::-moz-range-track { height: 7px; background: transparent; border: none; }
+.nd-range::-moz-range-thumb {
+  width: 15px; height: 15px; border-radius: 50%; cursor: pointer;
+  background: var(--bg-primary); border: 1px solid var(--border-medium);
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -175,8 +197,8 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .topbar { display: flex; align-items: center; gap: 6px; padding: 0 14px; background: var(--bg-primary); border-bottom: .5px solid var(--border-faint); flex-shrink: 0; height: 52px; }
 .topbar-logo { display: flex; align-items: center; gap: 8px; margin-right: 8px; user-select: none; }
 .topbar-logo .word { font-size: 28px; font-weight: 700; letter-spacing: .005em; line-height: 1; }
-.topbar-logo .word .b-love { color: var(--brand-love); }
-.topbar-logo .word .b-ide  { color: var(--brand-ide); }
+.topbar-logo .word .b-love { color: var(--brand-pink); }
+.topbar-logo .word .b-ide  { color: var(--brand-gray); }
 .topbar-sep { flex: 1; }
 .tb-group { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .tb-group-btns { display: flex; align-items: center; gap: 2px; }
@@ -184,10 +206,14 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .tb-divider { width: .5px; height: 28px; align-self: center; background: var(--border-faint); margin: 0 4px; }
 .tb-btn { background: none; border: .5px solid var(--border-light); border-radius: var(--radius-md); padding: 6px 10px; font-size: 12px; font-family: var(--font-sans); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 5px; transition: background .12s, color .12s; white-space: nowrap; }
 .tb-btn:hover { background: var(--bg-secondary); color: var(--text-primary); }
-.tb-btn.primary { background: var(--fn-execute-bg); border-color: transparent; color: var(--fn-execute); }
-.tb-btn.run { background: var(--brand-love); border-color: transparent; color: #fff; font-weight: 600; }
-.tb-btn.run:hover { filter: brightness(.97); opacity: .92; }
-.tb-btn.danger { background: var(--fn-danger-bg); border-color: transparent; color: var(--fn-danger); }
+.tb-btn.icon-only { padding: 6px; }  /* no label inside — the word lives in the group caption below */
+.tb-btn.icon-only svg { width: 15px; height: 15px; }
+/* Run/Stop is one morphing button: blue (action) when idle/error, red (live control)
+   while booting/running. Both use the fn-colour fill+ring model. */
+.tb-btn.run { background: var(--fn-blue-bg); border-color: var(--fn-blue-border); color: var(--fn-blue); }
+.tb-btn.run:hover { background: color-mix(in srgb, var(--fn-blue) 20%, transparent); color: var(--fn-blue); }
+.tb-btn.danger { background: var(--fn-red-bg); border-color: var(--fn-red-border); color: var(--fn-red); }
+.tb-btn.danger:hover { background: color-mix(in srgb, var(--fn-red) 20%, transparent); color: var(--fn-red); }
 .tb-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -195,11 +221,9 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
  * ════════════════════════════════════════════════════════════════════════════ */
 .status-bar { display: flex; align-items: center; height: 26px; flex-shrink: 0; background: var(--bg-secondary); border-top: .5px solid var(--border-faint); padding: 0 10px; gap: 6px; font-size: 11px; user-select: none; }
 .status-item { display: flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 99px; color: var(--text-tertiary); background: var(--bg-primary); border: .5px solid var(--border-faint); white-space: nowrap; transition: color .15s, background .15s, border-color .15s; }
-.status-item svg { width: 11px; height: 11px; }
-.status-item.working { color: var(--fn-working); background: var(--fn-working-bg); border-color: var(--fn-working-border); }
-.status-item.ready { color: var(--fn-success); background: var(--fn-success-bg); border-color: transparent; }
-.status-item.error { color: var(--fn-danger); background: var(--fn-danger-bg); border-color: transparent; }
-.status-item.dirty { color: var(--fn-working); background: var(--fn-working-bg); border-color: var(--fn-working-border); }
+.status-item.working { color: var(--fn-amber); background: var(--fn-amber-bg); border-color: var(--fn-amber-border); }
+.status-item.ready { color: var(--fn-green); background: var(--fn-green-bg); border-color: var(--fn-green-border); }
+.status-item.error { color: var(--fn-red); background: var(--fn-red-bg); border-color: var(--fn-red-border); }
 .status-spacer { flex: 1; }
 .status-link { cursor: pointer; }
 .status-link:hover { color: var(--text-primary); }
@@ -222,14 +246,14 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .cell-header .cell-badge, .cell-header .ca-btn { cursor: pointer; }
 .cell-badge { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 99px; letter-spacing: .05em; text-transform: uppercase; display: flex; align-items: center; gap: 4px; flex-shrink: 0; cursor: pointer; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); }
 .cell-badge:hover { opacity: .82; }
-.badge-lua { background: var(--type-lua-bg); color: var(--type-lua-fg); }
-.badge-md { background: var(--type-md-bg); color: var(--type-md-fg); }
+.badge-lua { background: color-mix(in srgb, var(--brand-pink) 15%, transparent); color: var(--brand-pink); }
+.badge-md { background: color-mix(in srgb, var(--brand-gray) 20%, transparent); color: var(--brand-gray); }
 .cell-title { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); margin-right: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cell-actions { display: flex; gap: 3px; opacity: 0; transition: opacity .15s; }
 .cell:hover .cell-actions, .cell.focused .cell-actions { opacity: 1; }
 .ca-btn { background: none; border: none; cursor: pointer; color: var(--text-secondary); padding: 3px 5px; border-radius: 5px; display: flex; align-items: center; transition: background .1s, color .1s; }
 .ca-btn:hover { background: var(--bg-primary); color: var(--text-primary); }
-.ca-btn.danger:hover { background: var(--fn-danger-bg); color: var(--fn-danger); }
+.ca-btn.danger:hover { background: var(--fn-red-bg); color: var(--fn-red); }
 .ca-btn:disabled { opacity: .3; cursor: default; }
 .ca-btn svg { width: 16px; height: 16px; }
 
@@ -262,8 +286,8 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .cell-insert:hover::before { opacity: 1; }
 .insert-btn { background: var(--bg-primary); border: .5px solid var(--border-light); border-radius: 99px; font-size: 11px; color: var(--text-tertiary); padding: 3px 11px; cursor: pointer; display: flex; align-items: center; gap: 5px; position: relative; z-index: 1; }
 .insert-btn:hover { color: var(--text-primary); border-color: var(--border-medium); background: var(--bg-secondary); }
-.insert-btn.type-lua:hover { color: var(--type-lua-fg); background: var(--type-lua-bg); border-color: color-mix(in srgb, currentColor 30%, transparent); }
-.insert-btn.type-md:hover  { color: var(--type-md-fg);  background: var(--type-md-bg);  border-color: color-mix(in srgb, currentColor 30%, transparent); }
+.insert-btn.type-lua:hover { color: var(--brand-pink); background: color-mix(in srgb, var(--brand-pink) 15%, transparent); border-color: color-mix(in srgb, currentColor 30%, transparent); }
+.insert-btn.type-md:hover  { color: var(--brand-gray);  background: color-mix(in srgb, var(--brand-gray) 20%, transparent);  border-color: color-mix(in srgb, currentColor 30%, transparent); }
 .insert-btn svg { width: 12px; height: 12px; }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -288,7 +312,7 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .list-row .mono { font-family: var(--font-mono); }
 .list-row .sub { color: var(--text-tertiary); font-size: 10px; }
 .list-row .x { color: var(--text-tertiary); cursor: pointer; display: flex; }
-.list-row .x:hover { color: var(--fn-danger); }
+.list-row .x:hover { color: var(--fn-red); }
 .list-row.clickable { cursor: pointer; }
 
 /* settings (themes) */
@@ -306,15 +330,23 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .settings-section.collapsed .settings-chev { transform: rotate(0deg); }
 .settings-section.collapsed .settings-section-body { display: none; }
 .settings-section-body { display: flex; flex-direction: column; gap: 16px; }
-.seg { display: flex; gap: 4px; flex-wrap: wrap; }
-.seg button { flex: 1; min-width: 56px; background: var(--bg-secondary); border: .5px solid var(--border-light); border-radius: 6px; color: var(--text-secondary); font-size: 11px; padding: 6px 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; }
-.seg button.active { background: var(--fn-execute-bg); border-color: transparent; color: var(--fn-execute); }
-.seg button:hover:not(.active) { color: var(--text-primary); }
+/* Export-target picker: custom radios sharing the toggle's fill+ring ON language —
+   neutral when unselected; green tint + ring + green centre dot when selected. */
+.conf-radios { display: flex; flex-direction: column; gap: 5px; }
+.conf-radio { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+.conf-radio input { appearance: none; -webkit-appearance: none; margin: 0; flex-shrink: 0; position: relative; width: 16px; height: 16px; border-radius: 50%; background: var(--bg-tertiary); border: .5px solid var(--border-light); cursor: pointer; transition: background .15s, border-color .15s; }
+.conf-radio input:checked { background: var(--fn-green-bg); border-color: var(--fn-green-border); }
+.conf-radio input:checked::after { content: ''; position: absolute; top: 50%; left: 50%; width: 7px; height: 7px; border-radius: 50%; background: var(--bg-primary); border: .5px solid var(--border-medium); transform: translate(-50%, -50%); }
+.conf-radio input:focus-visible { outline: 2px solid var(--fn-green-border); outline-offset: 1px; }
 .setting-toggle { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--text-secondary); }
 /* Checkbox-as-switch — .setting-toggle checkboxes (Line numbers, conf booleans) and any input.switch (VRAM toggle). */
 .setting-toggle input[type="checkbox"], input.switch { appearance: none; -webkit-appearance: none; margin: 0; position: relative; flex-shrink: 0; width: 34px; height: 18px; border-radius: 99px; background: var(--bg-tertiary); border: .5px solid var(--border-light); cursor: pointer; transition: background .15s, border-color .15s; }
-.setting-toggle input[type="checkbox"]:checked, input.switch:checked { background: var(--fn-success); border-color: transparent; }
-.setting-toggle input[type="checkbox"]::after, input.switch::after { content: ''; position: absolute; top: 50%; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.35); transform: translateY(-50%); transition: left .15s, right .15s; }
+/* Toggle: on/off is shown by the knob position (see :checked::after) AND a soft green
+   ON state — 18% green tint + green ring on the track, matching the fn-colour fill+ring
+   language (pills, Run/Stop). Knob tracks Paper (bg-primary fill + paper-aware ring,
+   like the Paper slider knob) — soft, not a solid-green slab. */
+.setting-toggle input[type="checkbox"]::after, input.switch::after { content: ''; position: absolute; top: 50%; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: var(--bg-primary); border: .5px solid var(--border-medium); transform: translateY(-50%); transition: left .15s, right .15s; }
+.setting-toggle input[type="checkbox"]:checked, input.switch:checked { background: var(--fn-green-bg); border-color: var(--fn-green-border); }
 .setting-toggle input[type="checkbox"]:checked::after, input.switch:checked::after { left: auto; right: 2px; }
 .setting-toggle input[type="checkbox"]:disabled, input.switch:disabled { opacity: .5; cursor: default; }
 .agent-field-label { font-size: 12px; color: var(--text-secondary); }
@@ -335,14 +367,12 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 
 /* Storage meter */
 .storage-bar { height: 5px; background: var(--bg-tertiary); border-radius: 99px; overflow: hidden; margin: 4px 0 8px; }
-.storage-fill { height: 100%; background: var(--fn-success); border-radius: 99px; transition: width .3s, background .3s; }
-.storage-fill.warn { background: var(--fn-working); }
-.storage-fill.full { background: var(--fn-danger); }
+.storage-fill { height: 100%; background: var(--fn-green); border-radius: 99px; transition: width .3s, background .3s; }
+.storage-fill.warn { background: var(--fn-amber); }
+.storage-fill.full { background: var(--fn-red); }
 .storage-row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-secondary); padding: 3px 0; }
 .storage-row .grow { flex: 1; }
 .storage-row .val { color: var(--text-primary); font-family: var(--font-mono); }
-.storage-row .clr { border: .5px solid var(--border-faint); background: none; color: var(--text-tertiary); border-radius: 5px; font-size: 10px; padding: 2px 7px; cursor: pointer; }
-.storage-row .clr:hover { border-color: var(--fn-danger); color: var(--fn-danger); }
 .storage-total { font-size: 11px; color: var(--text-tertiary); display: flex; justify-content: space-between; }
 .storage-total b { color: var(--text-primary); font-family: var(--font-mono); font-weight: 600; }
 .storage-group { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 8px 0 1px; margin-top: 6px; }
@@ -364,8 +394,8 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 
 /* outline */
 .ol-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.ol-dot.lua { background: var(--type-lua-fg); }
-.ol-dot.md  { background: var(--type-md-fg); }
+.ol-dot.lua { background: var(--brand-pink); }
+.ol-dot.md  { background: var(--brand-gray); }
 @keyframes cellflash { 0%,100% { box-shadow: 0 0 0 0 transparent; } 30% { box-shadow: 0 0 0 2px var(--border-info); } }
 .cell.flash { animation: cellflash .7s ease; }
 
@@ -374,7 +404,7 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .lib-add input { flex: 1; min-width: 0; padding: 5px 8px; border: .5px solid var(--border-light); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 12px; outline: none; }
 .lib-add input:focus { border-color: var(--border-info); }
 .kv-row .x { flex-shrink: 0; cursor: pointer; color: var(--text-tertiary); display: flex; }
-.kv-row .x:hover { color: var(--fn-danger); }
+.kv-row .x:hover { color: var(--fn-red); }
 .x svg { width: 15px; height: 15px; }   /* remove icon (.x is only ever a remove control) */
 .kv-row { display: flex; flex-direction: column; gap: 2px; padding: 7px 12px; border-bottom: .5px solid var(--border-faint); }
 .kv-top { display: flex; align-items: center; gap: 8px; }
@@ -382,7 +412,6 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .kv-desc { font-size: 11px; color: var(--text-tertiary); line-height: 1.4; }
 .kv-btn { flex-shrink: 0; border: .5px solid var(--border-light); background: var(--bg-secondary); color: var(--text-secondary); border-radius: 5px; font-size: 11px; padding: 3px 8px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
 .kv-btn:hover { color: var(--text-primary); border-color: var(--border-info); }
-.kv-btn.added { color: var(--fn-success); border-color: transparent; background: var(--fn-success-bg); }
 .kv-btn.busy { opacity: .6; pointer-events: none; }
 .kv-btn svg { width: 12px; height: 12px; }
 
@@ -406,7 +435,7 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .tbl-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px 4px; }
 .tbl-head .grow { flex: 1; font-size: 12px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tbl-head.clickable { cursor: pointer; }
-.tbl-head.clickable:hover .grow { color: var(--type-lua-fg); }
+.tbl-head.clickable:hover .grow { color: var(--brand-pink); }
 .tbl-grid { overflow-x: auto; padding: 0 12px 10px; }
 .tbl-grid table { border-collapse: collapse; font-size: 11.5px; font-family: var(--font-mono); min-width: 100%; }
 .tbl-grid th { background: var(--bg-secondary); padding: 4px 8px; text-align: left; font-weight: 600; color: var(--text-secondary); border-bottom: .5px solid var(--border-medium); white-space: nowrap; position: sticky; top: 0; }
@@ -424,9 +453,15 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .chat-msg.user { background: var(--bg-tertiary); color: var(--text-primary); align-self: flex-end; }
 .chat-msg.bot { background: var(--bg-secondary); color: var(--text-primary); align-self: flex-start; }
 .chat-msg.sys { color: var(--text-tertiary); font-style: italic; align-self: center; text-align: center; font-size: 11px; }
-.chat-input { display: flex; gap: 5px; padding: 8px; border-top: .5px solid var(--border-faint); }
-.chat-input textarea { flex: 1; resize: none; font-family: inherit; font-size: 12px; line-height: 1.4; padding: 6px 8px; border-radius: 6px; border: .5px solid var(--border-light); background: var(--bg-secondary); color: var(--text-primary); outline: none; max-height: 110px; }
-.chat-input button { flex-shrink: 0; border: none; background: var(--fn-execute-bg); color: var(--fn-execute); border-radius: 6px; padding: 0 10px; cursor: pointer; display: flex; align-items: center; }
+.chat-input { display: flex; gap: 5px; padding: 8px; }
+/* Draggable divider between the messages and the input — drag up to grow the field. */
+.chat-resizer { height: 7px; flex-shrink: 0; cursor: ns-resize; position: relative; }
+.chat-resizer::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: .5px; background: var(--border-faint); transition: background .15s; }
+.chat-resizer:hover::before, .chat-resizer.dragging::before { background: var(--border-medium); }
+.chat-input textarea { flex: 1; resize: none; font-family: inherit; font-size: 12px; line-height: 1.4; padding: 6px 8px; border-radius: 6px; border: .5px solid var(--border-light); background: var(--bg-secondary); color: var(--text-primary); outline: none; }
+.chat-input button { flex-shrink: 0; border: .5px solid var(--border-light); background: none; color: var(--text-secondary); border-radius: 6px; padding: 0 10px; cursor: pointer; display: flex; align-items: center; }
+.chat-input button:hover { background: var(--bg-secondary); color: var(--text-primary); }
+.chat-input button svg { width: 15px; height: 15px; }
 
 /* ════════════════════════════════════════════════════════════════════════════
  * 8. PREVIEW (right pane)
@@ -436,16 +471,13 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .right-panel.active { display: flex; }
 #stage { flex: 1; min-height: 0; display: grid; place-items: center; position: relative; overflow: hidden; background: #0c0c0c; }
 #stage iframe { border: 0; width: 100%; height: 100%; background: #000; }
-#stage .placeholder { color: var(--text-tertiary); text-align: center; padding: 24px; max-width: 380px; line-height: 1.6; font-size: 13px; }
-#stage .placeholder .big { color: var(--type-lua-fg); opacity: .5; margin-bottom: 10px; }
-#stage .placeholder code { font-family: var(--font-mono); color: var(--type-lua-fg); }
-#stage .placeholder b { color: var(--text-secondary); }
+#stage .pane-placeholder { max-width: 360px; }
 #console { height: 150px; flex-shrink: 0; overflow-y: auto; border-top: .5px solid var(--border-faint); background: var(--bg-secondary); font-family: var(--font-mono); font-size: 11.5px; line-height: 1.5; padding: 8px 12px; white-space: pre-wrap; }
 #console.hidden { display: none; }
-#console .err { color: var(--fn-danger); }
-#console .ok { color: var(--fn-success); }
+#console .err { color: var(--fn-red); }
+#console .ok { color: var(--fn-green); }
 #console .dim { color: var(--text-tertiary); }
-#console .warn { color: var(--fn-working); }
+#console .warn { color: var(--fn-amber); }
 
 /* ════════════════════════════════════════════════════════════════════════════
  * 9. MARKDOWN OUTPUT  (ported from the oracle)
@@ -461,7 +493,7 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .out-md pre { background: var(--bg-secondary); padding: 10px 12px; border-radius: var(--radius-md); overflow-x: auto; margin-bottom: 10px; }
 .out-md pre code { background: none; padding: 0; }
 .out-md blockquote { border-left: 3px solid var(--border-medium); padding-left: 12px; color: var(--text-secondary); margin-bottom: 9px; }
-.out-md a { color: var(--text-info); }
+.out-md a { color: inherit; text-decoration: underline; }  /* TEMP: underline only — link colour deferred (see TODO) */
 .out-md hr { border: none; border-top: .5px solid var(--border-light); margin: 14px 0; }
 .out-md strong { font-weight: 600; }
 .out-md table { border-collapse: collapse; font-size: 13px; margin-bottom: 10px; }
@@ -473,11 +505,12 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
  * ════════════════════════════════════════════════════════════════════════════ */
 .toast { position: fixed; bottom: 38px; left: 50%; transform: translateX(-50%); background: var(--bg-primary); border: .5px solid var(--border-light); border-radius: var(--radius-md); padding: 8px 16px; font-size: 13px; color: var(--text-primary); box-shadow: 0 4px 16px rgba(0,0,0,.16); opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 200; white-space: nowrap; }
 .toast.show { opacity: 1; }
+.toast.err { color: var(--fn-red); border-color: var(--fn-red-border); }  /* failed actions read red; successes stay quiet/neutral */
 
 input[type=file] { display: none; }
 </style>
 </head>
-<body>
+<body class="loveide-themed">
 <div id="app">
 
   <!-- ───────────────────────── Topbar ───────────────────────── -->
@@ -509,10 +542,9 @@ input[type=file] { display: none; }
 
     <div class="tb-group">
       <div class="tb-group-btns">
-        <button class="tb-btn" id="btn-stop" data-ico="stop">Stop</button>
-        <button class="tb-btn run" id="btn-run" data-ico="play">Run</button>
+        <button class="tb-btn run icon-only" id="btn-run" data-ico="play" title="Run"></button>
       </div>
-      <div class="tb-group-label">Preview</div>
+      <div class="tb-group-label" id="run-label">Run</div>
     </div>
   </div>
 
@@ -559,20 +591,12 @@ input[type=file] { display: none; }
             <div class="settings-section-header"><span class="settings-chev" data-ico="chevron"></span><span>Appearance</span></div>
             <div class="settings-section-body">
               <div>
-                <div class="settings-label">Brightness</div>
-                <div class="seg" id="seg-mode">
-                  <button data-mode="light">Light</button>
-                  <button data-mode="dark">Dark</button>
-                  <button data-mode="auto">Auto</button>
-                </div>
+                <div class="settings-label">Paper · <span id="paper-level">Midday</span> <span id="paper-pct">12%</span></div>
+                <div class="nd-track"><input id="paper" class="nd-range" type="range" min="0" max="1" step="0.01"></div>
               </div>
               <div>
-                <div class="settings-label">Tone</div>
-                <div class="seg" id="seg-tone">
-                  <button data-tone="warm">Warm</button>
-                  <button data-tone="cool">Cool</button>
-                  <button data-tone="neutral">Mono</button>
-                </div>
+                <div class="settings-label">Ink</div>
+                <div class="nd-track wc"><input id="ink" class="nd-range" type="range" min="0" max="1" step="0.01"></div>
               </div>
               <div>
                 <div class="settings-label">Editor</div>
@@ -617,10 +641,10 @@ input[type=file] { display: none; }
       </div>
       <div class="right-panel active" id="rpanel-preview" data-right-tab="preview">
         <div id="stage">
-          <div class="placeholder" id="placeholder">
-            <div class="big" id="placeholder-icon"></div>
-            Press <b>Run</b> to build a <code>.love</code> in your browser and boot it with love.js.
-            <br><br><span style="font-size:12px">The exported <code>.love</code> also runs in desktop LÖVE.</span>
+          <div class="pane-placeholder" id="placeholder">
+            <span data-ico="display"></span>
+            <div>Nothing running</div>
+            <div class="pp-hint">Press Run to build &amp; boot your game. The exported .love also runs in desktop LÖVE.</div>
           </div>
         </div>
         <div id="console" class="hidden"></div>
@@ -644,9 +668,8 @@ input[type=file] { display: none; }
   <!-- ───────────────────────── Status bar ───────────────────────── -->
   <div class="status-bar">
     <span class="status-spacer"></span>
-    <span class="status-item" id="st-runtime" data-ico="dot" title="love.js preview engine">Engine: idle</span>
-    <span class="status-item status-link" id="st-agent" data-ico="dot" title="AI assistant">Agent: idle</span>
-    <span class="status-item" id="st-save">Saved</span>
+    <span class="status-item" id="st-runtime" title="love.js preview engine">Engine: idle</span>
+    <span class="status-item status-link" id="st-agent" title="AI assistant">Agent: idle</span>
   </div>
 </div>
 
@@ -726,7 +749,8 @@ function elem(tag, props={}, kids=[]) {
   return n;
 }
 let _uid = 0; const uid = () => ++_uid;
-function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 1600); }
+// kind: '' (neutral success/info) or 'err' (red — a failed/rejected action).
+function toast(msg, kind) { const t = $('#toast'); t.textContent = msg; t.className = 'toast' + (kind ? ' ' + kind : ''); t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 1600); }
 // Centered empty-state node: faint icon + headline + optional dim hint. Used for
 // wholly empty tabs/panels (Variables, Tables, Outline, Assets, History, Agent).
 function panePlaceholder(icon, headline, hint) {
@@ -891,7 +915,7 @@ function refreshMarkdownCells(){
  * ════════════════════════════════════════════════════════════════════════════ */
 // Persistence keys (origin-scoped localStorage). The `loveide:` prefix is a
 // stable namespace, decoupled from the filename so a rename can't strand state.
-const LS = { theme:'loveide:theme', opts:'loveide:opts' };  // localStorage = tiny app prefs ONLY; all project data lives in IndexedDB (see §3 idb layer)
+const LS = { opts:'loveide:opts' };  // localStorage = tiny app prefs ONLY; all project data lives in IndexedDB (see §3 idb layer)
 const SEED = `--[[
 # LoveIDE
 
@@ -958,7 +982,10 @@ function saveDoc(snapshot){
 }
 let _saveTimer=null;
 function saveSoon(){ clearTimeout(_saveTimer); _saveTimer=setTimeout(()=>saveDoc(false),600); }
-function setDirty(v){ nb.dirty=v; const el=$('#st-save'); el.textContent=v?'Unsaved':'Saved'; el.classList.toggle('dirty',v); }
+// Tracks whether the in-memory doc differs from the working buffer. Not surfaced:
+// durability is silent (the buffer overwrites on every edit). Kept as a plain flag
+// for a future run-if-dirty snapshot gate (see TODO). No status pill.
+function setDirty(v){ nb.dirty=v; }
 
 // history
 function readHistory(){ return nb.history; }
@@ -980,7 +1007,7 @@ function renderHistory(){
   h.forEach((e,idx)=>{
     wrap.appendChild(elem('div',{class:'list-row clickable',title:'Restore this snapshot',
       onclick:()=>{ if(confirm('Restore snapshot? Current state is snapshotted first.')){ saveDoc(true); nb.doc=parse(e.src); setDirty(true); renderNotebook(); } }},
-      [ elem('span',{class:'grow',html:(idx===0?'● ':'')+relTime(e.t)}), elem('span',{class:'sub',text:(e.src.length+' B')}) ]));
+      [ elem('span',{class:'grow',html:(idx===0?'<span style="color:var(--fn-green)">● </span>':'')+relTime(e.t)}), elem('span',{class:'sub',text:(e.src.length+' B')}) ]));
   });
 }
 
@@ -1080,7 +1107,7 @@ async function addAssets(fileList){
   const files=Array.from(fileList); if(!files.length) return;
   for (const file of files){
     try { await idbPutAsset({ name:file.name, blob:file, size:file.size, type:file.type||'' }); }
-    catch(e){ toast('Failed to store '+file.name); }
+    catch(e){ toast('Failed to store '+file.name, 'err'); }
   }
   renderAssets();
   toast(files.length+' asset(s) added');
@@ -1210,13 +1237,13 @@ function renderConf(){
   // Target section last: the selector + its options. Only this part changes when
   // the target changes, so General/Advanced above never jump around.
   wrap.appendChild(confSection('Export target'));
-  const seg=elem('div',{class:'seg'});
+  const radios=elem('div',{class:'conf-radios'});
   CONF_TARGETS.forEach(([v,lbl])=>{
-    const b=elem('button',{text:lbl}); if(target===v) b.classList.add('active');
-    b.onclick=()=>{ setConf('target',v); renderConf(); };
-    seg.appendChild(b);
+    const r=elem('input',{type:'radio',name:'export-target',value:v}); r.checked=(target===v);
+    r.onchange=()=>{ setConf('target',v); renderConf(); };
+    radios.appendChild(elem('label',{class:'conf-radio'},[ r, elem('span',{text:lbl}) ]));
   });
-  wrap.appendChild(seg);
+  wrap.appendChild(radios);
   const platFields=fieldsIn('platform').filter(f=>f.platforms.includes(target));
   if(platFields.length){
     wrap.appendChild(confSection(label+' settings'));
@@ -1296,20 +1323,199 @@ async function renderStorage(){
 /* ════════════════════════════════════════════════════════════════════════════
  * 4. THEME
  * ════════════════════════════════════════════════════════════════════════════ */
-function getTheme(){ try { return JSON.parse(lsGet(LS.theme,'null')) || { mode:'auto', tone:'warm' }; } catch(e){ return { mode:'auto', tone:'warm' }; } }
-function setTheme(t){ lsSet(LS.theme, JSON.stringify(t)); applyTheme(); }
-const THEMES = { warm:{light:'linen',dark:'ember'}, cool:{light:'slate',dark:'dusk'}, neutral:{light:'cloud',dark:'carbon'} };
-function applyTheme(){
-  const t=getTheme();
-  let dark = t.mode==='dark' || (t.mode==='auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  const name = THEMES[t.tone][dark?'dark':'light'];
-  document.documentElement.setAttribute('data-theme', name);
-  $$('#seg-mode button').forEach(b=>b.classList.toggle('active', b.dataset.mode===t.mode));
-  $$('#seg-tone button').forEach(b=>b.classList.toggle('active', b.dataset.tone===t.tone));
-  const stt=$('#st-theme'); if(stt) stt.textContent=name;
-  if (nb.editor.cm) refreshEditorThemes();
-}
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{ if(getTheme().mode==='auto') applyTheme(); });
+// THEME ENGINE — inlined VERBATIM from Theme/loveide-theme.js. Do not refactor;
+// the OKLCH math is exact. Exposes window.LoveIDETheme; wired at boot via init().
+/* ============================================================================
+ * loveide-theme.js — Paper × Ink theme engine for LoveIDE
+ * ----------------------------------------------------------------------------
+ * Two orthogonal axes, computed parametrically in OKLCH:
+ *
+ *   Paper (t): 0 = lightest … 1 = darkest. Drives every NEUTRAL surface, text
+ *              and border in pure grayscale. A symmetric "sprint" rushes the
+ *              mid-greys (the Fog/Gloom band) and a dual text-halo carries
+ *              glyphs through the low-contrast crossover.
+ *   Ink   (w): 0 = steel … 1 = pink. Tints ONLY the five syntax slots.
+ *              Steel = uniform cool-cast greys told apart by LIGHTNESS;
+ *              Pink  = one constant lightness + chroma, told apart by HUE
+ *              (magenta → coral, never blue/green/violet). The lightness flip
+ *              that keeps grey legible fades out as pink rises, so pink stays a
+ *              vivid, consistent brand colour on any paper.
+ *
+ * This module sets ONLY theme-driven tokens (the list under buildTheme). Brand,
+ * action (Run/Stop) and status colours are intentionally NOT emitted — set those
+ * yourself; the theme leaves them alone.
+ *
+ * No dependencies. Exposes window.LoveIDETheme. Pairs with loveide-theme.css.
+ * ==========================================================================*/
+(function (global) {
+  'use strict';
+
+  /* ---- helpers ----------------------------------------------------------- */
+  var ok = function (l, c, h) { return 'oklch(' + (+l).toFixed(4) + ' ' + (+c).toFixed(4) + ' ' + h + ')'; };
+  var lerp = function (a, b, p) { return a + (b - a) * p; };
+  var clamp01 = function (x) { return Math.max(0, Math.min(1, x)); };
+  // smoothstep — eased 0→1 ramp between two edges.
+  var smooth = function (e0, e1, x) { var k = clamp01((x - e0) / (e1 - e0)); return k * k * (3 - 2 * k); };
+
+  // The six named zones of the Paper slider (upper bound, name).
+  var LEVELS = [[1/6, 'Midday'], [2/6, 'Sunlit'], [3/6, 'Fog'], [4/6, 'Gloom'], [5/6, 'Moonlit'], [1.01, 'Midnight']];
+
+  var DEFAULTS = { t: 0.12, w: 0.82 };
+
+  /* ---- the engine -------------------------------------------------------- *
+   * buildTheme(t, w) → { '--var': 'value', … }  (Paper + Ink tokens only)    */
+  function buildTheme(t, w) {
+    t = clamp01(t); w = clamp01(w);
+    var H = 80;                               // neutral hue, irrelevant at chroma 0
+
+    // Paper polarity: flips ink dark↔light through the middle third (the sprint band).
+    var pol = smooth(1/3, 2/3, t);
+    var dark = pol > 0.5;
+
+    // Fog halo: a light + dark ring on every glyph, peaking across the middle
+    // third (Fog+Gloom) and exactly 0 outside it (crisp text). FOG_HALF = onset,
+    // FOG_MAX = peak strength.
+    var FOG_HALF = 1/3, FOG_MAX = 1.0;
+    var x = Math.abs(2 * t - 1);
+    var haloA = FOG_MAX * (1 - smooth(0, FOG_HALF, x));
+
+    // Paper darkness, SYMMETRIC SPRINT: outer thirds move gently (fine control in
+    // the readable ranges), the middle third sprints across the mid-greys.
+    var d = t <= 1/3 ? lerp(0,    0.25, t / (1/3))
+          : t <= 2/3 ? lerp(0.25, 0.75, (t - 1/3) / (1/3))
+          :            lerp(0.75, 1,    (t - 2/3) / (1/3));
+
+    var sL = function (a, b) { return ok(lerp(a, b, d), 0, H); };   // surfaces: dim along shaped darkness
+    var iL = function (a, b) { return ok(lerp(a, b, pol), 0, H); }; // text: polarity flip
+
+    // ---- Ink (syntax) ----
+    // Hue eases steel→pink, front-loaded so the cross-wheel travel happens while
+    // chroma is still low — no saturated violet at rest.
+    var hueK = smooth(0, 0.17, w);
+    // The lightness flip (dark-on-light ↔ light-on-dark) only exists to keep grey
+    // legible against the paper. Pink reads on any grey on its own, so the flip
+    // fades out in proportion to pink% — full flip at steel (polEff = pol), none
+    // at pink (polEff = 0.5 → one constant vivid-pink lightness on both papers).
+    var polEff = lerp(0.5, pol, 1 - w);
+    // ONE uniform cool steel cast, ONE uniform pink chroma. Steel tokens differ by
+    // LIGHTNESS (la/lb), pink tokens by HUE (hPink). la/lb symmetric around 0.62,
+    // so every token lands on the SAME lightness at pink → pink differs by hue alone.
+    var STEEL_C = 0.020, STEEL_H = 248, PINK_C = 0.130;
+    var syn = function (la, lb, hPink) {
+      return ok(lerp(la, lb, polEff), lerp(STEEL_C, PINK_C, w), lerp(STEEL_H, hPink, hueK));
+    };
+
+    // Borders: grey at an alpha that flips light↔dark with the paper.
+    var inkCh = Math.round(lerp(44, 205, pol));
+    var bd = function (a) { return 'rgba(' + inkCh + ',' + inkCh + ',' + inkCh + ',' + a + ')'; };
+
+    return {
+      /* ---- Paper: neutral surfaces (grayscale) ---- */
+      '--bg-primary':   sL(1.0,   0.235),
+      '--bg-secondary': sL(0.965, 0.195),
+      '--bg-tertiary':  sL(0.912, 0.285),
+      '--bg-info':      sL(0.935, 0.262),
+      /* ---- Paper: text (grayscale) ---- */
+      '--text-primary':   iL(0.30, 0.915),
+      '--text-secondary': iL(0.46, 0.66),
+      '--text-tertiary':  iL(0.63, 0.50),
+      /* ---- Paper: borders (grayscale) ---- */
+      '--border-faint':  bd(0.10),
+      '--border-light':  bd(0.18),
+      '--border-medium': bd(0.30),
+      '--border-info':   ok(lerp(0.56, 0.60, pol), 0, H),
+      /* ---- Ink: syntax (the only themed colour) ---- *
+       * syn(lightL, darkL, pinkHue); la/lb symmetric around 0.62.             *
+       * steel → distinguished by lightness; pink → distinguished by hue.      */
+      '--syntax-keyword':  syn(0.34,  0.90,  340),  // widest L-swing (steel) · magenta (pink)
+      '--syntax-number':   syn(0.42,  0.82,   16),  // · rose
+      '--syntax-function': syn(0.48,  0.76,  356),  // · pink
+      '--syntax-string':   syn(0.54,  0.70,   32),  // · coral / salmon
+      '--syntax-operator': syn(0.585, 0.655, 350),  // narrowest L-swing (steel) · muted pink
+      /* ---- text halo (Paper; ~0 except in the Fog/Gloom band) ---- */
+      '--ink-halo-d': 'oklch(0.05 0 ' + H + ' / ' + haloA.toFixed(3) + ')',
+      '--ink-halo-l': 'oklch(0.99 0 ' + H + ' / ' + haloA.toFixed(3) + ')',
+      /* ---- optional UI shadow (paper-derived; delete if unused) ---- */
+      '--shadow': dark ? '0 14px 38px rgba(0,0,0,.5)' : '0 14px 38px rgba(40,40,40,.14)'
+    };
+  }
+
+  /* ---- apply / query ----------------------------------------------------- */
+
+  // Apply the theme by setting the CSS variables on `root` (default :root) and
+  // updating color-scheme so native controls / scrollbars follow.
+  function applyTheme(t, w, root) {
+    root = root || document.documentElement;
+    var v = buildTheme(t, w);
+    for (var k in v) if (v.hasOwnProperty(k)) root.style.setProperty(k, v[k]);
+    document.documentElement.style.colorScheme = t > 0.5 ? 'dark' : 'light';
+    return v;
+  }
+
+  // Name of the Paper zone for a position (Midday … Midnight).
+  function levelName(t) {
+    t = clamp01(t);
+    for (var i = 0; i < LEVELS.length; i++) if (t <= LEVELS[i][0]) return LEVELS[i][1];
+    return 'Midnight';
+  }
+
+  /* ---- persistence ------------------------------------------------------- */
+  function load(key) {
+    try { var s = JSON.parse(localStorage.getItem(key)); if (s && typeof s.t === 'number' && typeof s.w === 'number') return { t: s.t, w: s.w }; } catch (e) {}
+    return { t: DEFAULTS.t, w: DEFAULTS.w };
+  }
+  function save(key, st) { try { localStorage.setItem(key, JSON.stringify({ t: st.t, w: st.w })); } catch (e) {} }
+
+  /* ---- UI wiring --------------------------------------------------------- *
+   * init({ paperSlider, inkSlider, levelEl, pctEl, root, storageKey })       *
+   * Wires two <input type=range> (0..1, step .01). Loads the saved position, *
+   * applies, and persists on every change. Any option may be a selector or a *
+   * DOM element; levelEl/pctEl are optional readouts. Returns a controller.   */
+  function el(ref) { return typeof ref === 'string' ? document.querySelector(ref) : (ref || null); }
+
+  function init(opts) {
+    opts = opts || {};
+    var root = el(opts.root) || document.documentElement;
+    var key = opts.storageKey || 'loveide:appearance';
+    var st = load(key);
+    var paper = el(opts.paperSlider), ink = el(opts.inkSlider);
+    var levelEl = el(opts.levelEl), pctEl = el(opts.pctEl);
+
+    function render() {
+      applyTheme(st.t, st.w, root);
+      if (levelEl) levelEl.textContent = levelName(st.t);
+      if (pctEl) pctEl.textContent = Math.round(st.t * 100) + '%';
+    }
+    if (paper) {
+      paper.value = String(st.t);
+      paper.addEventListener('input', function (e) { st.t = parseFloat(e.target.value); save(key, st); render(); });
+    }
+    if (ink) {
+      ink.value = String(st.w);
+      ink.addEventListener('input', function (e) { st.w = parseFloat(e.target.value); save(key, st); render(); });
+    }
+    render();
+
+    return {
+      get state() { return { t: st.t, w: st.w }; },
+      set: function (t, w) {
+        st = { t: clamp01(t), w: clamp01(w) };
+        if (paper) paper.value = String(st.t);
+        if (ink) ink.value = String(st.w);
+        save(key, st); render();
+      }
+    };
+  }
+
+  global.LoveIDETheme = {
+    buildTheme: buildTheme,
+    applyTheme: applyTheme,
+    levelName: levelName,
+    init: init,
+    LEVELS: LEVELS,
+    DEFAULTS: DEFAULTS
+  };
+})(typeof window !== 'undefined' ? window : this);
 
 /* ════════════════════════════════════════════════════════════════════════════
  * 5. CODEMIRROR 6 (Lua) — loaded on demand; textarea is the fallback.
@@ -1352,7 +1558,6 @@ async function loadCM(){
     return null;
   }
 }
-function refreshEditorThemes(){ /* CM reads CSS vars live; nothing to do */ }
 
 async function upgradeEditor(cellEl, cell){
   if (nb.editor.views.has(cell.id)) return;
@@ -1415,8 +1620,8 @@ function renderOutlineSoon(){ clearTimeout(_outlineTimer); _outlineTimer=setTime
 function createInsertZone(){
   const zone=elem('div',{class:'cell-insert'});
   const at=()=>{ let i=0,n=zone.previousElementSibling; while(n){ if(n.classList && n.classList.contains('cell')) i++; n=n.previousElementSibling; } return i; };
-  zone.appendChild(elem('button',{class:'insert-btn type-lua',html:svg('code')+' Lua',onclick:()=>addCell('lua',at())}));
-  zone.appendChild(elem('button',{class:'insert-btn type-md',html:svg('md')+' Markdown',onclick:()=>addCell('md',at())}));
+  zone.appendChild(elem('button',{class:'insert-btn type-lua',text:'+ Lua',onclick:()=>addCell('lua',at())}));
+  zone.appendChild(elem('button',{class:'insert-btn type-md',text:'+ Markdown',onclick:()=>addCell('md',at())}));
   return zone;
 }
 function renderMd(cellEl, cell){
@@ -1614,12 +1819,11 @@ function collapseAll(){
 function renderOutline(){
   const wrap=$('#outline-list'); if(!wrap) return; wrap.innerHTML='';
   if(!nb.doc.cells.length){ wrap.appendChild(panePlaceholder('list','Empty notebook','Add a cell to get started')); return; }
-  nb.doc.cells.forEach((c,i)=>{
+  nb.doc.cells.forEach(c=>{
     const label = c.type==='md' ? (firstLine(c.code).replace(/^#+\s*/,'')||'Markdown') : (firstLine(c.code)||'(empty)');
     const row=elem('div',{class:'list-row clickable',title:label},[
       elem('span',{class:'ol-dot '+c.type}),
       elem('span',{class:'grow mono',text:label}),
-      elem('span',{class:'sub',text:String(i+1)}),
     ]);
     row.onclick=()=>{ const el=$(`.cell[data-id="${c.id}"]`); if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),750); } };
     wrap.appendChild(row);
@@ -1833,16 +2037,16 @@ function removeLib(name){ writeLibs(readLibs().filter(l=>l.name!==name)); }
 // Fetch a single .lua file and vendor it under <name>.lua (root) → require("name").
 async function addLibByUrl(url, btn){
   url=(url||'').trim(); if(!url) return;
-  if(!/^https?:\/\//i.test(url)){ toast('Enter a full http(s) URL to a .lua file'); return; }
+  if(!/^https?:\/\//i.test(url)){ toast('Enter a full http(s) URL to a .lua file', 'err'); return; }
   const name=((url.split(/[?#]/)[0].split('/').pop())||'lib').replace(/\.lua$/i,'').replace(/[^\w.-]/g,'')||'lib';
-  if(readLibs().some(l=>l.name===name)){ toast(name+' is already added'); return; }
+  if(readLibs().some(l=>l.name===name)){ toast(name+' is already added', 'err'); return; }
   if(btn) btn.classList.add('busy');
   try {
     const res=await fetch(url); if(!res.ok) throw new Error('HTTP '+res.status);
     const code=await res.text();
     const libs=readLibs(); libs.push({ name, path:name+'.lua', url, code }); writeLibs(libs);
     toast(name+' added ('+fmtBytes(code.length)+') — require("'+name+'")');
-  } catch(e){ if(btn) btn.classList.remove('busy'); toast('Failed to add: '+(e.message||e)); }
+  } catch(e){ if(btn) btn.classList.remove('busy'); toast('Failed to add: '+(e.message||e), 'err'); }
 }
 function renderLibs(){
   const wrap=$('#lib-list'); if(!wrap) return; wrap.innerHTML='';
@@ -1870,7 +2074,7 @@ function renderLibs(){
   // Detected in code but not added → a guaranteed runtime error; prompt to add.
   [...required].filter(n=>!have.has(n)).forEach(n=>{
     wrap.appendChild(elem('div',{class:'kv-row'},[
-      elem('div',{class:'kv-top'},[ elem('span',{class:'kv-name',text:n}), elem('span',{class:'var-type',style:'color:var(--fn-danger);background:var(--fn-danger-bg)',text:'missing'}) ]),
+      elem('div',{class:'kv-top'},[ elem('span',{class:'kv-name',text:n}), elem('span',{class:'var-type',style:'color:var(--fn-red);background:var(--fn-red-bg)',text:'missing'}) ]),
       elem('div',{class:'kv-desc',text:'require("'+n+'") isn’t added — paste its .lua URL above'}),
     ]));
   });
@@ -1957,10 +2161,10 @@ async function agentToggleVram(on){
   agent.busyId=null; agent.op=''; agent.progress=''; renderAgentLocal(); renderAgentTab(); syncAgentPill();
 }
 function syncAgentPill(){
-  if (agent.generating||agent.busyId) setAgent('loading','Agent: '+({disk:'downloading',activate:'loading',deactivate:'unloading'}[agent.op]||'thinking'));
-  else if (agent.activeId) setAgent('ready','Agent: '+agentLabelFor(agent.activeId));
-  else if (agent.error) setAgent('error','Agent: error');
-  else setAgent('idle','Agent: idle');
+  if (agent.generating||agent.busyId) setAgent('loading');
+  else if (agent.activeId) setAgent('ready');
+  else if (agent.error) setAgent('error');
+  else setAgent('idle');
 }
 
 // Settings → Agent: GPU status + on-disk model (dropdown) + VRAM toggle.
@@ -1970,10 +2174,10 @@ function renderAgentGPU(){
   if(g.supported){
     const mb=g.maxBufferSize?('max buffer '+(g.maxBufferSize/1048576).toFixed(0)+' MB'):'GPU detected';
     el.innerHTML='<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">'+
-      '<span style="color:var(--fn-success);font-weight:600;flex-shrink:0">● WebGPU available</span>'+
+      '<span style="color:var(--fn-green);font-weight:600;flex-shrink:0">● WebGPU available</span>'+
       '<span style="color:var(--text-tertiary);font-size:11px;text-align:right">'+escapeHtml(mb)+'</span></div>';
   } else {
-    el.innerHTML='<span style="color:var(--text-secondary);font-weight:600">○ WebGPU unavailable</span><div style="color:var(--text-tertiary);font-size:11px;margin-top:3px">'+escapeHtml(g.reason||'')+'</div><div style="color:var(--text-tertiary);font-size:11px;margin-top:3px">In-browser models are disabled.</div>';
+    el.innerHTML='<span style="color:var(--fn-amber);font-weight:600">○ WebGPU unavailable</span><div style="color:var(--text-tertiary);font-size:11px;margin-top:3px">'+escapeHtml(g.reason||'')+'</div><div style="color:var(--text-tertiary);font-size:11px;margin-top:3px">In-browser models are disabled.</div>';
   }
 }
 function renderAgentLocal(){
@@ -1983,7 +2187,7 @@ function renderAgentLocal(){
   const onDisk=[...agent.installed][0]||'';   // at most one model on disk
   const active=!!agent.activeId, busy=!!agent.busyId;
   el.innerHTML='';
-  if(agent.error) el.appendChild(elem('div',{style:'font-size:11px;color:var(--fn-danger);margin:0 0 8px;word-break:break-word',text:agent.error}));
+  if(agent.error) el.appendChild(elem('div',{style:'font-size:11px;color:var(--fn-red);margin:0 0 8px;word-break:break-word',text:agent.error}));
 
   // "Local Agent" label, then the model dropdown + its VRAM toggle on one row.
   // Models that can't run on this GPU are shown but disabled — no downloading a
@@ -2006,7 +2210,7 @@ function renderAgentLocal(){
   // Status line — also names the toggle's job for discoverability.
   let status, col='var(--text-tertiary)';
   if(busy){ const OP={disk:'Downloading… ',activate:'Loading… ',deactivate:'Unloading… '}; status=(OP[agent.op]||'Working… ')+(agent.progress||''); }
-  else if(active){ status='Active in VRAM — ready to chat'; col='var(--fn-success)'; }
+  else if(active){ status='Active in VRAM — ready to chat'; col='var(--fn-green)'; }
   else if(onDisk) status='On disk · toggle to load into VRAM';
   else status='No model selected';
   el.appendChild(elem('div',{class:'kv-desc',style:'margin-top:8px;color:'+col,text:status}));
@@ -2024,16 +2228,23 @@ function renderAgentTab(){
   }
   body.innerHTML='';
   const msgs=elem('div',{class:'chat-msgs',id:'agent-messages'});
-  const ta=elem('textarea',{rows:'2',placeholder:'Ask '+agentLabelFor(agent.activeId)+'…',id:'agent-input'});
+  const ta=elem('textarea',{rows:'1',placeholder:'Ask '+agentLabelFor(agent.activeId)+'…',id:'agent-input'});
   const send=elem('button',{html:svg('send'),title:'Send'});
   const submit=()=>{ if(!agent.generating){ agentSend(ta.value); ta.value=''; } };
   send.onclick=submit; ta.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); submit(); } });
-  body.appendChild(msgs); body.appendChild(elem('div',{class:'chat-input'},[ta,send]));
+  // Draggable divider: grab the line and drag up to enlarge the input (down to shrink).
+  // Listeners attach only during a drag, so re-renders don't accumulate them.
+  const resizer=elem('div',{class:'chat-resizer',title:'Drag to resize'});
+  let dy0=0, h0=0, floorH=0;   // floor = the field's default (smallest, 1-row) height, measured on first grab
+  const onMove=e=>{ ta.style.height=Math.max(floorH, Math.min(body.offsetHeight*0.5, h0+(dy0-e.clientY)))+'px'; };
+  const onUp=()=>{ resizer.classList.remove('dragging'); document.body.style.cursor=''; document.body.style.userSelect=''; document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); };
+  resizer.addEventListener('mousedown',e=>{ if(!floorH) floorH=ta.offsetHeight||34; dy0=e.clientY; h0=ta.offsetHeight; resizer.classList.add('dragging'); document.body.style.cursor='ns-resize'; document.body.style.userSelect='none'; document.addEventListener('mousemove',onMove); document.addEventListener('mouseup',onUp); e.preventDefault(); });
+  body.appendChild(msgs); body.appendChild(resizer); body.appendChild(elem('div',{class:'chat-input'},[ta,send]));
   renderAgentMessages();
 }
 function renderAgentMessages(){
   const box=$('#agent-messages'); if(!box) return; box.innerHTML='';
-  if(!agent.messages.length){ box.appendChild(panePlaceholder('spark','Ask about your game','It can see your main.lua, conf, and recent console')); return; }
+  if(!agent.messages.length){ box.appendChild(panePlaceholder('message-code','Ask about your game','It can see your main.lua, conf, and recent console')); return; }
   agent.messages.forEach(m=>{
     const el=elem('div',{class:'chat-msg '+(m.role==='user'?'user':'bot')});
     if(m.role==='user') el.textContent=m.content; else el.innerHTML = m.content? renderMarkdownHTML(m.content) : '<span style="opacity:.5">…</span>';
@@ -2139,10 +2350,22 @@ function setPill(el, state, label){
   if (!el) return;
   const cls = state==='loading' ? ' working' : (state==='running'||state==='ready') ? ' ready' : state==='error' ? ' error' : '';
   el.className = 'status-item' + (el.classList.contains('status-link')?' status-link':'') + cls;
-  el.innerHTML = svg('dot') + ' ' + label;
+  el.textContent = label;
 }
-function setRuntime(state, label){ nb.runtime=state; setPill($('#st-runtime'), state, label||('Engine: '+state)); }
-function setAgent(state, label){ nb.agentState=state; setPill($('#st-agent'), state, label||('Agent: '+state)); }
+function setRuntime(state){ nb.runtime=state; setPill($('#st-runtime'), state, 'Engine: '+state); syncRunStop(state); }
+// One button IS the single relevant engine action: blue "Run" when idle/error,
+// red "Stop" while booting/running. It morphs colour + icon + label with state;
+// the click handler dispatches on the live state (see wire()). No disabled state.
+function syncRunStop(state){
+  const b=$('#btn-run'); if(!b) return;
+  const live = state==='loading' || state==='running';
+  const word = live ? 'Stop' : 'Run';
+  b.className = 'tb-btn icon-only ' + (live ? 'danger' : 'run');
+  b.innerHTML = svg(live ? 'stop' : 'play');   // icon only — the label lives in the group caption below
+  b.title     = word;
+  const lbl = $('#run-label'); if (lbl) lbl.textContent = word;
+}
+function setAgent(state){ nb.agentState=state; setPill($('#st-agent'), state, 'Agent: '+(state==='loading'?'thinking':state)); }
 function showConsole(show){ const c=$('#console'); c.classList.toggle('hidden', show===false ? true : (show===true?false:!c.classList.contains('hidden')?true:false)); }
 function logConsole(msg,cls){ const c=$('#console'); c.classList.remove('hidden'); c.appendChild(elem('div',{class:cls||'',text:msg})); c.scrollTop=c.scrollHeight; }
 function clearConsole(){ $('#console').innerHTML=''; }
@@ -2166,7 +2389,7 @@ async function buildLoveBlob(devHooks){
 }
 function isolated(){ return (typeof SharedArrayBuffer!=='undefined') && (window.crossOriginIsolated!==false); }
 
-let _loveUrl=null, _docUrl=null;
+let _loveUrl=null, _docUrl=null, _runGen=0;
 function revokeUrls(){ if(_loveUrl){URL.revokeObjectURL(_loveUrl);_loveUrl=null;} if(_docUrl){URL.revokeObjectURL(_docUrl);_docUrl=null;} }
 function playerHTML(loveUrl){
   const o='<scr'+'ipt', c='</scr'+'ipt>';
@@ -2202,7 +2425,7 @@ function hookLoveMessages(){
   window.addEventListener('message', e=>{
     const d=e.data; if(!d || typeof d!=='object' || !('__love' in d)) return;
     if (d.__love==='status' && d.msg==='running'){
-      setRuntime('running','Engine: running');
+      setRuntime('running');
       logConsole('Running — click the canvas for keyboard/mouse focus.','ok');
       return;
     }
@@ -2213,7 +2436,7 @@ async function run(){
   saveDoc(true);
   clearConsole(); showConsole(true);
   if (!isolated()){
-    setRuntime('error','Engine: needs isolation');
+    setRuntime('error');
     showPlaceholder();
     logConsole('Live preview needs cross-origin isolation (SharedArrayBuffer).','err');
     if (location.protocol==='file:'){
@@ -2228,9 +2451,11 @@ async function run(){
     logConsole('Export still works and runs in desktop LÖVE regardless.','dim');
     return;
   }
-  setRuntime('loading','Engine: building .love');
-  let blob; try { blob=await buildLoveBlob(true); } catch(e){ setRuntime('error'); logConsole(String(e.message||e),'err'); return; }
-  setRuntime('loading','Engine: booting love.js');
+  setRuntime('loading');
+  const gen = ++_runGen;  // if Stop lands during the async build, this run is stale — abandon it
+  let blob; try { blob=await buildLoveBlob(true); } catch(e){ if(gen===_runGen){ setRuntime('error'); logConsole(String(e.message||e),'err'); } return; }
+  if (gen !== _runGen){ revokeUrls(); return; }  // stopped mid-build; don't boot a preview the user cancelled
+  setRuntime('loading');
   logConsole('Built .love ('+fmtBytes(blob.size)+'). Booting love.js '+RT.VERSION+'… (first run downloads the WASM)','dim');
   hookLoveMessages();
   revokeUrls();
@@ -2239,10 +2464,10 @@ async function run(){
   const stage=$('#stage'); const old=stage.querySelector('iframe'); if(old)old.remove();
   hidePlaceholder();
   const frame=elem('iframe',{src:_docUrl,allow:'autoplay; fullscreen; gamepad'});
-  frame.onload=()=>{ setRuntime('loading','Engine: booting'); logConsole('Player frame loaded — booting love.js…','dim'); };
+  frame.onload=()=>{ setRuntime('loading'); logConsole('Player frame loaded — booting love.js…','dim'); };
   stage.appendChild(frame);
 }
-function stopPreview(){ const f=$('#stage').querySelector('iframe'); if(f)f.remove(); revokeUrls(); showPlaceholder(); setRuntime('idle'); logConsole('Stopped.','dim'); }
+function stopPreview(){ _runGen++; const f=$('#stage').querySelector('iframe'); if(f)f.remove(); revokeUrls(); showPlaceholder(); setRuntime('idle'); logConsole('Stopped.','dim'); }
 function showPlaceholder(){ const p=$('#placeholder'); if(p){ $('#stage').appendChild(p); p.style.display=''; } }
 function hidePlaceholder(){ const p=$('#placeholder'); if(p)p.style.display='none'; }
 
@@ -2272,7 +2497,7 @@ function runSelfTests(){
   clearConsole(); showConsole(true);
   logConsole('Self-tests: '+pass+'/'+res.length+' passed', pass===res.length?'ok':'err');
   res.forEach(r=>logConsole((r.ok?'  ✓ ':'  ✗ ')+r.n+(r.note?'  — '+r.note:''), r.ok?'dim':'err'));
-  toast(pass===res.length?('All '+res.length+' tests passed'):(res.length-pass)+' test(s) failed');
+  toast(pass===res.length?('All '+res.length+' tests passed'):(res.length-pass)+' test(s) failed', pass===res.length?'':'err');
   return pass===res.length;
 }
 
@@ -2369,8 +2594,8 @@ function initSettingsSections(){
   });
 }
 function wire(){
-  $('#btn-run').onclick=run;
-  $('#btn-stop').onclick=stopPreview;
+  // Single morphing button: Stop while the engine is live, otherwise Run.
+  $('#btn-run').onclick=()=>{ (nb.runtime==='loading'||nb.runtime==='running') ? stopPreview() : run(); };
   $('#btn-export').onclick=exportLove;
   $('#btn-tests').onclick=runSelfTests;
   $('#btn-collapse-all').onclick=collapseAll;
@@ -2384,8 +2609,6 @@ function wire(){
   $('#snap-clear').onclick=()=>{ if(confirm('Clear all snapshots?')){ nb.history=[]; persistHistory(); renderHistory(); renderStorage(); toast('Snapshots cleared'); } };
   $('#toggle-console').onclick=()=>showConsole();
   $('#st-agent').onclick=()=>openTab('assistant');
-  $$('#seg-mode button').forEach(b=>b.onclick=()=>{ const t=getTheme(); t.mode=b.dataset.mode; setTheme(t); });
-  $$('#seg-tone button').forEach(b=>b.onclick=()=>{ const t=getTheme(); t.tone=b.dataset.tone; setTheme(t); });
   const ln=$('#opt-linenums'); ln.checked=nb.opts.lineNumbers; ln.onchange=()=>{ nb.opts.lineNumbers=ln.checked; lsSet(LS.opts,JSON.stringify(nb.opts)); renderNotebook(); };
   setupPane('left'); setupPane('right'); wireActivityBars();
   window.addEventListener('beforeunload',()=>{ try{ syncFromEditors(); saveDoc(false); }catch(e){} });
@@ -2400,9 +2623,8 @@ function registerIsolationSW(){
 
 async function boot(){
   try { nb.opts = Object.assign(nb.opts, JSON.parse(lsGet(LS.opts,'{}'))); } catch(e){}
-  $('#placeholder-icon').innerHTML=`<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${I.play}</svg>`;
   paintIcons();
-  applyTheme();
+  LoveIDETheme.init({ paperSlider:'#paper', inkSlider:'#ink', levelEl:'#paper-level', pctEl:'#paper-pct' });
   await loadAll();
   wire();
   initSettingsSections();
@@ -2420,7 +2642,7 @@ async function boot(){
   loadMarked();
   restorePanes();
   registerIsolationSW();
-  if (!isolated() && location.protocol!=='file:'){ setRuntime('idle','Engine: idle (isolating…)'); }
+  if (!isolated() && location.protocol!=='file:'){ setRuntime('idle'); }
   // try to upgrade Lua editors to CodeMirror (no-op if offline)
   upgradeAllEditors();
   // expose for console / oracle comparisons
