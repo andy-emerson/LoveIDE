@@ -351,8 +351,10 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .setting-toggle input[type="checkbox"]:disabled, input.switch:disabled { opacity: .5; cursor: default; }
 .agent-field-label { font-size: 12px; color: var(--text-secondary); }
 .agent-row { display: flex; align-items: center; gap: 10px; }
+.agent-row-label { font-size: 12px; color: var(--text-secondary); flex-shrink: 0; }
 .agent-select { flex: 1; min-width: 0; padding: 5px 8px; border: .5px solid var(--border-light); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 12px; cursor: pointer; }
 .agent-select:disabled { opacity: .55; cursor: default; }
+.agent-input { flex: 1; min-width: 0; padding: 5px 8px; border: .5px solid var(--border-light); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 12px; font-family: var(--font-mono); }
 
 /* Game (conf.lua) fields */
 .conf-grid { display: flex; flex-direction: column; gap: 8px; }
@@ -413,6 +415,11 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .kv-btn { flex-shrink: 0; border: .5px solid var(--border-light); background: var(--bg-secondary); color: var(--text-secondary); border-radius: 5px; font-size: 11px; padding: 3px 8px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
 .kv-btn:hover { color: var(--text-primary); border-color: var(--border-info); }
 .kv-btn.busy { opacity: .6; pointer-events: none; }
+/* Adjacent constructive/destructive pair (Commit / Remove) — quiet at rest like
+   any other .kv-btn, colored only on hover so the two aren't mistaken for each
+   other the moment before a click. */
+.kv-btn.commit:hover { color: var(--fn-blue); border-color: var(--fn-blue-border); background: var(--fn-blue-bg); }
+.kv-btn.remove:hover { color: var(--fn-red); border-color: var(--fn-red-border); background: var(--fn-red-bg); }
 .kv-btn svg { width: 12px; height: 12px; }
 
 /* Variables panel (ported from the oracle's var-list) */
@@ -598,7 +605,7 @@ input[type=file] { display: none; }
         <div class="pane-header">Settings</div>
         <div class="settings-body">
           <div class="settings-section" data-sec="appearance">
-            <div class="settings-section-header"><span class="settings-chev" data-ico="chevron"></span><span>Appearance</span></div>
+            <div class="settings-section-header"><span class="settings-chev" data-ico="chevron"></span><span>Preferences</span></div>
             <div class="settings-section-body">
               <div>
                 <div class="settings-label">Paper · <span id="paper-level">Midday</span> <span id="paper-pct">12%</span></div>
@@ -615,16 +622,16 @@ input[type=file] { display: none; }
             </div>
           </div>
           <div class="settings-section" data-sec="storage">
-            <div class="settings-section-header"><span class="settings-chev" data-ico="chevron"></span><span>Storage</span></div>
+            <div class="settings-section-header"><span class="settings-chev" data-ico="chevron"></span><span>Storage Management</span></div>
             <div class="settings-section-body">
               <div id="storage-body"></div>
             </div>
           </div>
           <div class="settings-section" data-sec="agent">
-            <div class="settings-section-header"><span class="settings-chev" data-ico="chevron"></span><span>Agent</span></div>
+            <div class="settings-section-header"><span class="settings-chev" data-ico="chevron"></span><span>Agentic Coding</span></div>
             <div class="settings-section-body">
-              <div id="agent-gpu" style="font-size:12px;line-height:1.45;color:var(--text-secondary)">Checking GPU…</div>
-              <div id="agent-local" style="margin-top:10px"></div>
+              <div id="agent-local"></div>
+              <div id="agent-remote"></div>
             </div>
           </div>
         </div>
@@ -2125,6 +2132,42 @@ const agent = { gpu:null, llm:null, engine:null, installed:new Set(), installedC
 function agentLabelFor(id){ const m=AGENT_MODELS.find(x=>x.id===id); return m?(m.family+' ('+m.tier+')'):id; }
 function agentErr(e){ return (e&&e.message)?e.message:String(e); }
 
+/* ── Remote agents — UI shell only (Settings → Agentic Coding). Each row is
+ *    add-on-demand: pick a provider, Add, fill in what it needs. No backend
+ *    call is wired yet, so every provider's `models` starts empty on purpose —
+ *    an empty dropdown reads as "nothing to pick yet," which is honest; a
+ *    placeholder option (or Anthropic's real list) would have implied a fetch
+ *    already happens. (Anthropic's real, dependency-verified IDs are
+ *    claude-opus-4-8 / claude-sonnet-5 / claude-haiku-4-5 — for when the
+ *    fetch-and-populate wiring lands, not to hardcode now.) Scoped to the
+ *    three providers testable right now; Mistral / Meta Llama / Gemini are in
+ *    TODO.md, already confirmed CORS-reachable whenever they're added back. ── */
+const AGENT_PROVIDERS = [
+  { id:'anthropic', agent:'Claude',   provider:'Anthropic', fields:[{key:'apiKey',label:'API key'}], models:[] },
+  { id:'openai',    agent:'ChatGPT',  provider:'OpenAI',    fields:[{key:'apiKey',label:'API key'}], models:[] },
+  { id:'xai',       agent:'Grok',     provider:'xAI',       fields:[{key:'apiKey',label:'API key'}], models:[] },
+];
+// "Claude (Anthropic)" — but just "Mistral" when the agent and provider names
+// would otherwise repeat.
+function agentHeading(p){ return p.agent.toLowerCase()===p.provider.toLowerCase() ? p.agent : p.agent+' ('+p.provider+')'; }
+// A row is "configured" once every field it needs has a saved secret — the
+// Secrets manager IS the source of truth for whether a row persists, not a
+// separate flag. A row with no committed secret is transient: Add reveals it
+// for this session only (remoteSessionAdded, in-memory), and it's gone again
+// on the next reload unless Commit actually saved something.
+function agentIsConfigured(p){ return p.fields.every(f=>!!getSecret('agent:'+p.id+':'+f.key)); }
+const remoteSessionAdded = new Set();
+// Boot-time hygiene: drop any secret or active-agent pointer for a provider
+// this version no longer supports — a retired/renamed provider shouldn't
+// leave a live credential sitting in IndexedDB indefinitely.
+async function purgeOrphanedAgentSecrets(){
+  const supported=new Set(AGENT_PROVIDERS.map(p=>p.id));
+  const stale=listSecrets().filter(k=>{ const m=/^agent:([^:]+):/.exec(k); return m && !supported.has(m[1]); });
+  for (const k of stale) await deleteSecret(k);
+  const activeId=lsGet('loveide:activeRemoteAgent','');
+  if(activeId && !supported.has(activeId)) lsSet('loveide:activeRemoteAgent','');
+}
+
 async function detectWebGPU(){
   if (!('gpu' in navigator) || !navigator.gpu) return { supported:false, reason:'WebGPU not available in this browser' };
   let adapter; try { adapter=await navigator.gpu.requestAdapter(); } catch(e){ return { supported:false, reason:'requestAdapter() failed: '+agentErr(e) }; }
@@ -2193,53 +2236,140 @@ function syncAgentPill(){
 }
 
 // Settings → Agent: GPU status + on-disk model (dropdown) + VRAM toggle.
-function renderAgentGPU(){
-  const el=$('#agent-gpu'); if(!el) return; const g=agent.gpu;
-  if(!g){ el.innerHTML='<span style="color:var(--text-tertiary)">Checking GPU…</span>'; return; }
+// GPU readiness, rendered as HTML for inline placement under the WebLLM label
+// — the WebGPU check gates local models, so it belongs inside their block, not
+// as a separate section.
+function gpuStatusHTML(){
+  const g=agent.gpu;
+  if(!g) return '<span style="color:var(--text-tertiary)">Checking GPU…</span>';
   if(g.supported){
     const mb=g.maxBufferSize?('max buffer '+(g.maxBufferSize/1048576).toFixed(0)+' MB'):'GPU detected';
-    el.innerHTML='<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">'+
+    return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">'+
       '<span style="color:var(--fn-green);font-weight:600;flex-shrink:0">● WebGPU available</span>'+
       '<span style="color:var(--text-tertiary);font-size:11px;text-align:right">'+escapeHtml(mb)+'</span></div>';
-  } else {
-    el.innerHTML='<span style="color:var(--fn-amber);font-weight:600">○ WebGPU unavailable</span><div style="color:var(--text-tertiary);font-size:11px;margin-top:3px">'+escapeHtml(g.reason||'')+'</div><div style="color:var(--text-tertiary);font-size:11px;margin-top:3px">In-browser models are disabled.</div>';
   }
+  return '<span style="color:var(--fn-amber);font-weight:600">○ WebGPU unavailable</span><div style="color:var(--text-tertiary);font-size:11px;margin-top:3px">'+escapeHtml(g.reason||'')+'</div><div style="color:var(--text-tertiary);font-size:11px;margin-top:3px">In-browser models are disabled.</div>';
 }
+// Template for every agent row (local and, later, each remote provider):
+// name label -> readiness (read-only environment info, established up front)
+// -> the control row (agent/model + activate toggle) -> status.
 function renderAgentLocal(){
   const el=$('#agent-local'); if(!el) return;
-  if(agent.gpu===null){ el.innerHTML='<div class="pane-note">Checking GPU…</div>'; return; }
-  if(!(agent.gpu&&agent.gpu.supported)){ el.innerHTML='<div class="pane-note">Local models require WebGPU, which isn’t available here.</div>'; return; }
+  el.innerHTML='';
+  el.appendChild(elem('div',{class:'agent-field-label',text:'WebLLM Agents'}));
+  el.appendChild(elem('div',{style:'margin:7px 0 10px;font-size:12px;line-height:1.45;color:var(--text-secondary)',html:gpuStatusHTML()}));
+
+  const gpuOk=!!(agent.gpu&&agent.gpu.supported);
   const onDisk=[...agent.installed][0]||'';   // at most one model on disk
   const active=!!agent.activeId, busy=!!agent.busyId;
-  el.innerHTML='';
   if(agent.error) el.appendChild(elem('div',{style:'font-size:11px;color:var(--fn-red);margin:0 0 8px;word-break:break-word',text:agent.error}));
 
-  // "Local Agent" label, then the model dropdown + its VRAM toggle on one row.
-  // Models that can't run on this GPU are shown but disabled — no downloading a
-  // model you can't use. (Pairs with a future "Remote Agent" block.)
-  el.appendChild(elem('div',{class:'agent-field-label',style:'margin-bottom:7px',text:'Local Agent'}));
-  const sel=elem('select',{class:'agent-select'}); sel.disabled=busy;
+  // "Qwen 2.5" (the family) sits outside the dropdown since it's fixed — the
+  // dropdown only chooses size/tier. The row always shows, same as a remote
+  // agent's row would — just disabled until its requirement (WebGPU here) is met.
+  const sel=elem('select',{class:'agent-select'}); sel.disabled=busy||!gpuOk;
   sel.appendChild(elem('option',{value:'',text:'None'}));
   AGENT_MODELS.forEach(m=>{
     const fits=agentModelFits(m);
-    const o=elem('option',{value:m.id,text:m.family+' ('+m.tier+' · '+(m.diskMB/1000).toFixed(1)+' GB'+(fits?'':' · too large')+')'});
+    const o=elem('option',{value:m.id,text:m.tier+' ('+(m.diskMB/1000).toFixed(1)+' GB'+(fits?'':' · too large')+')'});
     if(!fits && m.id!==onDisk) o.disabled=true;   // keep the current on-disk model selectable regardless
     sel.appendChild(o);
   });
   sel.value=onDisk;
   sel.onchange=()=>agentSetDisk(sel.value);
-  const cb=elem('input',{type:'checkbox',class:'switch',title:'Active in VRAM'}); cb.checked=active; cb.disabled=busy||!onDisk;
+  const cb=elem('input',{type:'checkbox',class:'switch',title:'Active in VRAM'}); cb.checked=active; cb.disabled=!gpuOk||busy||!onDisk;
   cb.onchange=()=>agentToggleVram(cb.checked);
-  el.appendChild(elem('div',{class:'agent-row'},[ sel, cb ]));
+  el.appendChild(elem('div',{class:'agent-row'},[ elem('span',{class:'agent-row-label',text:'Qwen 2.5'}), sel, cb ]));
 
-  // Status line — also names the toggle's job for discoverability.
-  let status, col='var(--text-tertiary)';
-  if(busy){ const OP={disk:'Downloading… ',activate:'Loading… ',deactivate:'Unloading… '}; status=(OP[agent.op]||'Working… ')+(agent.progress||''); }
-  else if(active){ status='Active in VRAM — ready to chat'; col='var(--fn-green)'; }
-  else if(onDisk) status='On disk · toggle to load into VRAM';
-  else status='No model selected';
-  el.appendChild(elem('div',{class:'kv-desc',style:'margin-top:8px;color:'+col,text:status}));
+  // Status line — skipped until the requirement (WebGPU) is met; the block
+  // above already explains why the row is disabled.
+  if(gpuOk){
+    let status, col='var(--text-tertiary)';
+    if(busy){ const OP={disk:'Downloading… ',activate:'Loading… ',deactivate:'Unloading… '}; status=(OP[agent.op]||'Working… ')+(agent.progress||''); }
+    else if(active){ status='Active in VRAM — ready to chat'; col='var(--fn-green)'; }
+    else if(onDisk) status='On disk · toggle to load into VRAM';
+    else status='No model selected';
+    el.appendChild(elem('div',{class:'kv-desc',style:'margin-top:8px;color:'+col,text:status}));
+  }
   syncAgentPill();
+}
+// Add-on-demand remote agents: an "add" row (skipped once everything's added),
+// then each visible agent's own block — heading, its requirement fields (API
+// key, etc.) with Commit/Remove, then the model + activate toggle. Fields come
+// before the model row since the model list only exists once a key is committed
+// (shell for now: Commit just saves the field — see TODO.md for the fetch-and-
+// populate wiring). A row is visible if it's configured (has a saved secret —
+// survives reload) or was just Added this session (remoteSessionAdded, does
+// NOT survive reload — an in-progress add you never Committed should vanish,
+// not linger with empty fields). Toggling off keeps the row and its secret;
+// Remove deletes both and drops it from remoteSessionAdded too.
+function renderAgentRemote(){
+  const el=$('#agent-remote'); if(!el) return;
+  el.innerHTML='';
+  el.appendChild(elem('div',{class:'agent-field-label',text:'API Agents'}));
+  const activeId=lsGet('loveide:activeRemoteAgent','');
+  const visible=AGENT_PROVIDERS.filter(p=>agentIsConfigured(p)||remoteSessionAdded.has(p.id));
+  const allAdded=visible.length===AGENT_PROVIDERS.length;
+
+  if(allAdded){
+    el.appendChild(elem('div',{class:'pane-note',style:'margin-top:7px',text:'All supported agents added.'}));
+  } else {
+    const addSel=elem('select',{class:'agent-select'});
+    addSel.appendChild(elem('option',{value:'',text:'Select an agent…'}));
+    AGENT_PROVIDERS.forEach(p=>{
+      const already=visible.includes(p);
+      const o=elem('option',{value:p.id,text:agentHeading(p)+(already?' · already added':'')});
+      if(already) o.disabled=true;
+      addSel.appendChild(o);
+    });
+    const addBtn=elem('button',{class:'kv-btn',text:'Add'});
+    addBtn.onclick=()=>{
+      const id=addSel.value; if(!id) return;
+      remoteSessionAdded.add(id);
+      renderAgentRemote();
+    };
+    el.appendChild(elem('div',{class:'agent-row',style:'margin-top:7px'},[addSel,addBtn]));
+  }
+
+  visible.forEach(p=>{
+    const id=p.id;
+    const wrap=elem('div',{style:'margin-top:14px'});
+    wrap.appendChild(elem('div',{class:'agent-field-label',text:agentHeading(p)}));
+
+    // Requirement fields first — the model list below only exists once a key
+    // is committed. Commit here just saves to Secrets (shell only, no fetch
+    // yet); it's the same slot the real "save + fetch models" action lands in.
+    const fieldEls=p.fields.map(f=>{
+      const inp=elem('input',{type:'password',class:'agent-input',placeholder:f.label});
+      const existing=getSecret('agent:'+id+':'+f.key);
+      if(existing) inp.value=existing;
+      return inp;
+    });
+    const commitBtn=elem('button',{class:'kv-btn commit',text:'Commit'});
+    commitBtn.onclick=async()=>{
+      for(let i=0;i<p.fields.length;i++) await setSecret('agent:'+id+':'+p.fields[i].key, fieldEls[i].value);
+      renderAgentRemote();
+    };
+    const removeBtn=elem('button',{class:'kv-btn remove',text:'Remove'});
+    removeBtn.onclick=async()=>{
+      for(const f of p.fields) await deleteSecret('agent:'+id+':'+f.key);
+      remoteSessionAdded.delete(id);
+      if(activeId===id) lsSet('loveide:activeRemoteAgent','');
+      renderAgentRemote();
+    };
+    wrap.appendChild(elem('div',{class:'agent-row',style:'margin:7px 0'},[...fieldEls,commitBtn,removeBtn]));
+
+    const sel=elem('select',{class:'agent-select'});
+    p.models.forEach(m=>sel.appendChild(elem('option',{value:m.id,text:m.label})));
+    if(p.models[0]) sel.value=p.models[0].id;
+
+    const hasFields=agentIsConfigured(p);
+    const cb=elem('input',{type:'checkbox',class:'switch',title:'Active'}); cb.checked=activeId===id; cb.disabled=!hasFields;
+    cb.onchange=()=>{ lsSet('loveide:activeRemoteAgent', cb.checked?id:''); renderAgentRemote(); };
+    wrap.appendChild(elem('div',{class:'agent-row'},[sel,cb]));
+
+    el.appendChild(wrap);
+  });
 }
 
 // Agent tab = chat.
@@ -2348,7 +2478,8 @@ async function agentSend(text){
 async function initAgent(){
   renderAgentTab();
   agent.gpu = await detectWebGPU();
-  renderAgentGPU(); renderAgentLocal();
+  renderAgentLocal();
+  renderAgentRemote();
   if(agent.gpu && agent.gpu.supported) agentRefreshInstalled();   // detect on-disk model from cache, then re-render
 }
 
@@ -2585,7 +2716,7 @@ function wireActivityBars(){
         switchTab(tab);
         if (PANES.left.isCollapsed()) PANES.left.expand();
         lsSet('loveide:leftTab',tab);
-        if (tab==='settings'){ renderStorage(); renderAgentGPU(); renderAgentLocal(); if(!agent.installedChecked && agent.gpu && agent.gpu.supported) agentRefreshInstalled(); }
+        if (tab==='settings'){ renderStorage(); renderAgentLocal(); renderAgentRemote(); if(!agent.installedChecked && agent.gpu && agent.gpu.supported) agentRefreshInstalled(); }
         if (tab==='libs') renderLibs();   // refresh require()-detection on open
         if (tab==='assistant') renderAgentTab();
       }
@@ -2703,6 +2834,7 @@ async function boot(){
   paintIcons();
   LoveIDETheme.init({ paperSlider:'#paper', inkSlider:'#ink', levelEl:'#paper-level', pctEl:'#paper-pct' });
   await loadAll();
+  await purgeOrphanedAgentSecrets();
   wire();
   initSettingsSections();
   renderNotebook();
