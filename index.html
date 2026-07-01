@@ -430,6 +430,7 @@ body { font-family: var(--font-sans); background: var(--bg-tertiary); color: var
 .kv-btn { flex-shrink: 0; border: .5px solid var(--border-light); background: var(--bg-secondary); color: var(--text-secondary); border-radius: 5px; font-size: 11px; padding: 3px 8px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
 .kv-btn:hover { color: var(--text-primary); border-color: var(--border-info); }
 .kv-btn.busy { opacity: .6; pointer-events: none; }
+.kv-btn:disabled { opacity: .4; cursor: not-allowed; }
 /* Adjacent constructive/destructive pair (Commit / Remove) — quiet at rest like
    any other .kv-btn, colored only on hover so the two aren't mistaken for each
    other the moment before a click. */
@@ -2505,8 +2506,8 @@ function renderAgentLocal(){
       slider.value=startMB;
       track.appendChild(bg); track.appendChild(fill); track.appendChild(slider);
 
-      const label=elem('span',{class:'kv-desc',style:'min-width:70px;text-align:right',text:startMB+' MB'});
-      const setBtn=elem('button',{class:'kv-btn',text:'Set'});
+      const label=elem('span',{class:'kv-desc',style:'min-width:92px;text-align:right',text:startMB+' MB'});
+      const setBtn=elem('button',{class:'kv-btn commit'});   // .commit reuses the existing blue-on-hover pairing (Commit/Remove) rather than inventing a new hover color
       // Fill width is computed in pixels, not a CSS %, and not against track's
       // full width — the knob's own travel is inset 8px each side (half its
       // 16px width), so measuring against the full box overshoots the knob's
@@ -2520,11 +2521,18 @@ function renderAgentLocal(){
         const travel=Math.max(0, track.getBoundingClientRect().width-16);
         fill.style.width=(pct*travel)+'px';
         fill.className='vram-track-fill'+(zone?' '+zone:'');
-        label.textContent=val+' MB';
-        setBtn.disabled=(zone==='full');   // won't commit an allocation in the red zone — can still drag there to look, just can't Set it
+        label.textContent=val+' MB ('+Math.round(pct*100)+'%)';
+        // Set is disabled either because the current position is unsafe (red
+        // zone — can still drag there to look, just can't commit it) or because
+        // there's nothing new to commit (this value is already the saved one) —
+        // the button's own text/icon says which, so "grayed out" never reads as
+        // "broken."
+        const isSaved=(val===parseInt(lsGet('loveide:qwenVramMB',''),10));
+        setBtn.disabled=(zone==='full')||isSaved;
+        setBtn.innerHTML=isSaved?(svg('check')+'Saved'):'Set';
       };
       slider.oninput=sync;   // live readout + color while dragging — no persistence per nudge
-      setBtn.onclick=()=>{ lsSet('loveide:qwenVramMB', slider.value); toast('VRAM budget set to '+slider.value+' MB'); };
+      setBtn.onclick=()=>{ lsSet('loveide:qwenVramMB', slider.value); toast('VRAM budget set to '+slider.value+' MB'); sync(); };
       deferredSync=sync;
 
       if(startMB!==savedMB) lsSet('loveide:qwenVramMB', String(startMB));   // no saved value yet, or a re-measurement came back smaller than a stale saved one — persist the recalculated default so agentPickContextWindow never reads a now-too-large number
